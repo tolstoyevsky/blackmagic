@@ -82,7 +82,7 @@ class RPCHandler(RPCServer):
         if not self.apt_lock:
             self.apt_lock = True
 
-            command = ['chroot', '../jessie-subsidiary', '/usr/bin/apt-get',
+            command = ['chroot', options.base_system, '/usr/bin/apt-get',
                        'install', '--no-act', '-qq'] + packages_list
             proc = subprocess.Popen(command,
                                     stdout=subprocess.PIPE,
