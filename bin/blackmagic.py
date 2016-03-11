@@ -123,7 +123,7 @@ def main():
     passwd_file = os.path.join(options.base_system, 'etc/passwd')
     status_file = os.path.join(options.base_system, 'var/lib/dpkg/status')
 
-    with open(options.packages_file) as f:
+    with open(options.packages_file, encoding='utf-8') as f:
         for package in deb822.Sources.iter_paragraphs(f):
             description_lines = package['description']
 
@@ -138,11 +138,11 @@ def main():
 
     RPCHandler.packages_number = len(RPCHandler.packages_list)
 
-    with open(status_file) as f:
+    with open(status_file, encoding='utf-8') as f:
         for package in deb822.Sources.iter_paragraphs(f):
             RPCHandler.base_packages_list.append(package['package'])
 
-    with open(passwd_file) as f:
+    with open(passwd_file, encoding='utf-8') as f:
         for line in f:
             RPCHandler.users_list.append(line.split(':'))
 
