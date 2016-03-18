@@ -4,6 +4,7 @@ import os
 import os.path
 import re
 import subprocess
+from functools import wraps
 
 import tornado.ioloop
 import tornado.web
@@ -26,6 +27,21 @@ define('workspace',
 LOGGER = logging.getLogger('tornado.application')
 
 
+def only_if_unlocked(func):
+    """Executes a remote procedure only if the RPC server is unlocked. Every
+    single remote procedure, except initialize, has to be decorated with
+    only_if_unlocked."""
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if not self.global_lock:
+            return func(self, *args, **kwargs)
+        else:
+            return self.lock_message
+
+    return wrapper
+
+
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
@@ -44,12 +60,20 @@ class RPCHandler(RPCServer):
         RPCServer.__init__(self, application, request, **kwargs)
 
         self.apt_lock = False
+        self.global_lock = False
+        self.lock_message = 'Locked'
 
     @remote
+    def initialize(self):
+        return 'Ready'
+
+    @remote
+    @only_if_unlocked
     def get_base_packages_list(self):
         return self.base_packages_list
 
     @remote
+    @only_if_unlocked
     def get_dependencies_for(self, package_name):
         for package in self.packages_list:
             if package['package'] == package_name:
@@ -58,11 +82,13 @@ class RPCHandler(RPCServer):
         return []
 
     @remote
+    @only_if_unlocked
     def get_packages_list(self, page_number, amount):
         start_position = (page_number - 1) * amount
         return self.packages_list[start_position:start_position + amount]
 
     @remote
+    @only_if_unlocked
     def get_target_devices_list(self):
         target_devices_list = [
             'Raspberry Pi 2',
@@ -70,14 +96,17 @@ class RPCHandler(RPCServer):
         return target_devices_list
 
     @remote
+    @only_if_unlocked
     def get_packages_number(self):
         return self.packages_number
 
     @remote
+    @only_if_unlocked
     def get_users_list(self):
         return self.users_list
 
     @remote
+    @only_if_unlocked
     def resolve(self, packages_list):
         if not self.apt_lock:
             self.apt_lock = True
@@ -93,7 +122,7 @@ class RPCHandler(RPCServer):
             self.apt_lock = False
 
             return list(set(res) - set(packages_list))
-        return 'Locked'
+        return self.lock_message
 
 
 def main():
