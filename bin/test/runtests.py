@@ -17,6 +17,7 @@ from tornado import gen
 from tornado.concurrent import Future
 from tornado.escape import json_decode, json_encode
 from tornado.options import options
+from tornado.test.util import unittest
 from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.web import Application
 from tornado.websocket import websocket_connect
@@ -92,3 +93,5 @@ class RPCServerTest(WebSocketBaseTestCase):
         })
         yield self.close(ws)
 
+if __name__ == '__main__':
+    unittest.main()
