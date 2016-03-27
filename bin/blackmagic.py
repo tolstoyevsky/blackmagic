@@ -64,16 +64,16 @@ class RPCHandler(RPCServer):
         self.lock_message = 'Locked'
 
     @remote
-    def initialize(self):
+    def init(self, target_device):
         return 'Ready'
 
-    @remote
     @only_if_unlocked
+    @remote
     def get_base_packages_list(self):
         return self.base_packages_list
 
-    @remote
     @only_if_unlocked
+    @remote
     def get_dependencies_for(self, package_name):
         for package in self.packages_list:
             if package['package'] == package_name:
@@ -81,32 +81,32 @@ class RPCHandler(RPCServer):
                 return re.findall('([-\w\d\.]+)[ ,]', dependencies_list)
         return []
 
-    @remote
     @only_if_unlocked
+    @remote
     def get_packages_list(self, page_number, amount):
         start_position = (page_number - 1) * amount
         return self.packages_list[start_position:start_position + amount]
 
-    @remote
     @only_if_unlocked
+    @remote
     def get_target_devices_list(self):
         target_devices_list = [
             'Raspberry Pi 2',
         ]
         return target_devices_list
 
-    @remote
     @only_if_unlocked
+    @remote
     def get_packages_number(self):
         return self.packages_number
 
-    @remote
     @only_if_unlocked
+    @remote
     def get_users_list(self):
         return self.users_list
 
-    @remote
     @only_if_unlocked
+    @remote
     def resolve(self, packages_list):
         if not self.apt_lock:
             self.apt_lock = True
