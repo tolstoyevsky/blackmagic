@@ -11,5 +11,6 @@ setup(name='blackmagic',
       scripts=['bin/blackmagic.py'],
       install_requires=[
           'chardet',
+          'pymongo',
           'python-debian'
       ])
