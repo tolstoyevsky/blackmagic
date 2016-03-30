@@ -56,8 +56,7 @@ class Application(tornado.web.Application):
 
 class RPCHandler(RPCServer):
     base_packages_list = []
-    packages_list = []
-    packages_number = 0  # TODO: Move to __init__ and count it there
+    packages_list = []  # TODO: get rid of
     users_list = []
 
     def __init__(self, application, request, **kwargs):
@@ -71,6 +70,8 @@ class RPCHandler(RPCServer):
         db = client['cusdeb']
         self.collection = db['jessie-armhf']
 
+        self.packages_number = self.collection.find().count()
+
     @remote
     def init(self, target_device):
         return 'Ready'
@@ -83,10 +84,10 @@ class RPCHandler(RPCServer):
     @only_if_unlocked
     @remote
     def get_dependencies_for(self, package_name):
-        for package in self.packages_list:
-            if package['package'] == package_name:
-                dependencies_list = package['dependencies'] + ' '
-                return re.findall('([-\w\d\.]+)[ ,]', dependencies_list)
+        document = self.collection.find_one({'package': package_name})
+        if document:
+            dependencies_list = document['dependencies'] + ' '
+            return re.findall('([-\w\d\.]+)[ ,]', dependencies_list)
         return []
 
     @only_if_unlocked
