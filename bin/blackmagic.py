@@ -10,17 +10,21 @@ import tornado.ioloop
 import tornado.web
 import tornado.websocket
 from debian import deb822
-from tornado.options import define, options
 
+from tornado.options import define, options
+from pymongo import MongoClient
 from shirow.server import RPCServer, remote
 
 define('base_system',
        default='/var/blackmagic/jessie-armhf',
        help='The path to a chroot environment which contains '
             'the Debian base system')
-define('packages_file',
-       default='/var/blackmagic/Packages',
-       help='The path to the Packages file')
+define('mongodb_host',
+       default='localhost',
+       help='')
+define('mongodb_port',
+       default=27017,
+       help='')
 define('workspace',
        default='/var/blackmagic/workspace')
 
@@ -53,7 +57,7 @@ class Application(tornado.web.Application):
 class RPCHandler(RPCServer):
     base_packages_list = []
     packages_list = []
-    packages_number = 0
+    packages_number = 0  # TODO: Move to __init__ and count it there
     users_list = []
 
     def __init__(self, application, request, **kwargs):
@@ -62,6 +66,10 @@ class RPCHandler(RPCServer):
         self.apt_lock = False
         self.global_lock = False
         self.lock_message = 'Locked'
+
+        client = MongoClient(options.mongodb_host, options.mongodb_port)
+        db = client['cusdeb']
+        self.collection = db['jessie-armhf']
 
     @remote
     def init(self, target_device):
@@ -83,9 +91,18 @@ class RPCHandler(RPCServer):
 
     @only_if_unlocked
     @remote
-    def get_packages_list(self, page_number, amount):
-        start_position = (page_number - 1) * amount
-        return self.packages_list[start_position:start_position + amount]
+    def get_packages_list(self, page_number, per_page):
+        if page_number > 0:
+            start_position = (page_number - 1) * per_page
+        else:
+            start_position = 0
+
+        collection = self.collection
+        packages_list = []
+        for document in collection.find().skip(start_position).limit(per_page):
+            packages_list.append(document)
+
+        return packages_list
 
     @only_if_unlocked
     @remote
@@ -136,11 +153,6 @@ def main():
                      'does not exist')
         exit(1)
 
-    if not os.path.isfile(options.packages_file):
-        LOGGER.error('The Packages file specified via the packages_file '
-                     'parameter does not exist')
-        exit(1)
-
     if not os.path.isdir(options.workspace):
         LOGGER.error('The directory specified via the workspace parameter '
                      'does not exist')
@@ -152,30 +164,16 @@ def main():
     passwd_file = os.path.join(options.base_system, 'etc/passwd')
     status_file = os.path.join(options.base_system, 'var/lib/dpkg/status')
 
-    with open(options.packages_file, encoding='utf-8') as f:
-        for package in deb822.Sources.iter_paragraphs(f):
-            description_lines = package['description']
-
-            RPCHandler.packages_list.append({
-                'package': package['package'],
-                'dependencies': package.get('depends', ''),
-                'description': description_lines,
-                'version': package['version'],
-                'size': package['size'],
-                'type': ''
-            })
-
-    RPCHandler.packages_number = len(RPCHandler.packages_list)
-
-    with open(status_file, encoding='utf-8') as f:
-        for package in deb822.Sources.iter_paragraphs(f):
-            RPCHandler.base_packages_list.append(package['package'])
-
     with open(passwd_file, encoding='utf-8') as f:
         for line in f:
             RPCHandler.users_list.append(line.split(':'))
 
+    with open(status_file, encoding='utf-8') as f:
+        for package in deb822.Packages.iter_paragraphs(f):
+            RPCHandler.base_packages_list.append(package['package'])
+
     LOGGER.info('RPC server is ready!')
+
     tornado.ioloop.IOLoop.instance().start()
 
 
