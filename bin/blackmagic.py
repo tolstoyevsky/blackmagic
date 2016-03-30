@@ -100,6 +100,9 @@ class RPCHandler(RPCServer):
         collection = self.collection
         packages_list = []
         for document in collection.find().skip(start_position).limit(per_page):
+            # Originally _id is an ObjectId instance and it's not JSON
+            # serializable
+            document['_id'] = str(document['_id'])
             packages_list.append(document)
 
         return packages_list
