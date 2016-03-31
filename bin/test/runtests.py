@@ -87,8 +87,11 @@ class RPCServerTest(WebSocketBaseTestCase):
         payload = self.prepare_payload('get_packages_number', [], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
+        # The main section of the official Debian archive includes 41372
+        # binary packages.
+        expected = 41372
         self.assertEqual(json_decode(response), {
-            'result': 41372,
+            'result': expected,
             'marker': 1
         })
         yield self.close(ws)
@@ -129,23 +132,23 @@ class RPCServerTest(WebSocketBaseTestCase):
         payload = self.prepare_payload('search', ['nginx'], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
-        l = json_decode(response)
-        result = [document['package'] for document in l['result']]
-        expected = [
+        decoded_response = json_decode(response)
+        packages_names = [doc['package'] for doc in decoded_response['result']]
+        expected = {
+            'lua-nginx-memcached',
+            'lua-nginx-redis',
+            'lua-nginx-websocket',
             'nginx',
             'nginx-common',
             'nginx-doc',
             'nginx-extras',
-            'nginx-full',
-            'nginx-light',
-            'lua-nginx-memcached',
-            'lua-nginx-redis',
-            'lua-nginx-websocket',
             'nginx-extras-dbg',
+            'nginx-full',
             'nginx-full-dbg',
+            'nginx-light',
             'nginx-light-dbg'
-        ]
-        self.assertEqual(expected, result)
+        }
+        self.assertEqual(expected, set(packages_names))
         yield self.close(ws)
 
 if __name__ == '__main__':
