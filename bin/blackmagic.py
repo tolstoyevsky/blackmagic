@@ -84,8 +84,18 @@ class RPCHandler(RPCServer):
 
     @only_if_unlocked
     @remote
+    def build(self, packages_list):
+        return 'Ready'
+
+    @only_if_unlocked
+    @remote
     def get_base_packages_list(self):
         return self.base_packages_list
+
+    @only_if_unlocked
+    @remote
+    def get_built_images(self):
+        return []
 
     @only_if_unlocked
     @remote
