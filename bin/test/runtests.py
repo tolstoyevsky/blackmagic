@@ -123,5 +123,30 @@ class RPCServerTest(WebSocketBaseTestCase):
         })
         yield self.close(ws)
 
+    @gen_test
+    def test_searching(self):
+        ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
+        payload = self.prepare_payload('search', ['nginx'], 1)
+        ws.write_message(payload)
+        response = yield ws.read_message()
+        l = json_decode(response)
+        result = [document['package'] for document in l['result']]
+        expected = [
+            'nginx',
+            'nginx-common',
+            'nginx-doc',
+            'nginx-extras',
+            'nginx-full',
+            'nginx-light',
+            'lua-nginx-memcached',
+            'lua-nginx-redis',
+            'lua-nginx-websocket',
+            'nginx-extras-dbg',
+            'nginx-full-dbg',
+            'nginx-light-dbg'
+        ]
+        self.assertEqual(expected, result)
+        yield self.close(ws)
+
 if __name__ == '__main__':
     unittest.main()

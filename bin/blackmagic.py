@@ -19,6 +19,12 @@ define('base_system',
        default='/var/blackmagic/jessie-armhf',
        help='The path to a chroot environment which contains '
             'the Debian base system')
+define('collection_name',
+       default='jessie-armhf',
+       help='')
+define('db_name',
+       default='cusdeb',
+       help='')
 define('mongodb_host',
        default='localhost',
        help='')
@@ -67,8 +73,8 @@ class RPCHandler(RPCServer):
         self.lock_message = 'Locked'
 
         client = MongoClient(options.mongodb_host, options.mongodb_port)
-        db = client['cusdeb']
-        self.collection = db['jessie-armhf']
+        self.db = client[options.db_name]
+        self.collection = self.db[options.collection_name]
 
         self.packages_number = self.collection.find().count()
 
@@ -125,6 +131,19 @@ class RPCHandler(RPCServer):
     @remote
     def get_users_list(self):
         return self.users_list
+
+    @only_if_unlocked
+    @remote
+    def search(self, query):
+        matches = self.db.command('text', options.collection_name,
+                                  search=query)
+        packages_list = []
+        if matches['results']:
+            for document in matches['results']:
+                document['obj'].pop('_id')
+                packages_list.append(document['obj'])
+
+        return packages_list
 
     @only_if_unlocked
     @remote
