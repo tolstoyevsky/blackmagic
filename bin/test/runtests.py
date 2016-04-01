@@ -87,13 +87,11 @@ class RPCServerTest(WebSocketBaseTestCase):
         payload = self.prepare_payload('get_packages_number', [], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
-        # The main section of the official Debian archive includes 41372
-        # binary packages.
-        expected = 41372
-        self.assertEqual(json_decode(response), {
-            'result': expected,
-            'marker': 1
-        })
+        decoded_response = json_decode(response)
+        # The main section of the official Debian archive includes more than
+        # 41000 binary packages. The exact number may vary slightly from one
+        # minor release of the distribution to another.
+        self.assertEqual(True, decoded_response['result'] > 41000)
         yield self.close(ws)
 
     @gen_test
