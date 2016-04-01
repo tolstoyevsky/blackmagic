@@ -97,11 +97,14 @@ class RPCServerTest(WebSocketBaseTestCase):
     @gen_test
     def test_getting_packages_list(self):
         ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
-        payload = self.prepare_payload('get_packages_list', [0, 5], 1)
+        page_number = 0
+        per_page = 5
+        payload = self.prepare_payload('get_packages_list', [page_number,
+                                                             per_page], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
         d = json_decode(response)
-        self.assertEqual(len(d['result']), 5)
+        self.assertEqual(len(d['result']), per_page)
         yield self.close(ws)
 
     @gen_test
