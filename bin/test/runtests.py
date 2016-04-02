@@ -108,26 +108,6 @@ class RPCServerTest(WebSocketBaseTestCase):
         yield self.close(ws)
 
     @gen_test
-    def test_getting_dependencies(self):
-        ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
-        payload = self.prepare_payload('get_dependencies_for', ['nginx'], 1)
-        ws.write_message(payload)
-        response = yield ws.read_message()
-        expected = [
-            'nginx-full',
-            'nginx-light',
-            'nginx-extras',
-            'nginx-full',
-            'nginx-light',
-            'nginx-extras'
-        ]
-        self.assertEqual(json_decode(response), {
-            'result': expected,
-            'marker': 1
-        })
-        yield self.close(ws)
-
-    @gen_test
     def test_searching(self):
         ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
         payload = self.prepare_payload('search', ['nginx'], 1)

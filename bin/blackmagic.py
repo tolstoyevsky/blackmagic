@@ -99,15 +99,6 @@ class RPCHandler(RPCServer):
 
     @only_if_unlocked
     @remote
-    def get_dependencies_for(self, package_name):
-        document = self.collection.find_one({'package': package_name})
-        if document:
-            dependencies_list = document['dependencies'] + ' '
-            return re.findall('([-\w\d\.]+)[ ,]', dependencies_list)
-        return []
-
-    @only_if_unlocked
-    @remote
     def get_packages_list(self, page_number, per_page):
         if page_number > 0:
             start_position = (page_number - 1) * per_page
