@@ -145,13 +145,14 @@ class RPCHandler(RPCServer):
     @only_if_unlocked
     @remote
     def search(self, query):
-        matches = self.db.command('text', options.collection_name,
-                                  search=query)
         packages_list = []
-        if matches['results']:
-            for document in matches['results']:
-                document['obj'].pop('_id')
-                packages_list.append(document['obj'])
+        if query:
+            matches = self.db.command('text', options.collection_name,
+                                      search=query)
+            if matches['results']:
+                for document in matches['results']:
+                    document['obj'].pop('_id')
+                    packages_list.append(document['obj'])
 
         return packages_list
 
