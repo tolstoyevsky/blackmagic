@@ -167,6 +167,10 @@ class RPCHandler(RPCServer):
             # Inst libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
             # Inst libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
             # ...
+            # Conf libgdbm3 (1.8.3-13.1 Debian:8.4/stable [armhf])
+            # Conf libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
+            # Conf libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
+            # ...
             #
             # The second word in each line is a package name.
             packages_to_be_installed.add(line.split(' ')[1])
