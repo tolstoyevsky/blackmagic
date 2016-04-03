@@ -150,6 +150,7 @@ class RPCHandler(RPCServer):
     @remote
     def resolve(self, packages_list):
         if self.apt_proc:
+            LOGGER.debug('APT process has been terminated')
             self.apt_proc.kill()
 
         packages_to_be_installed = set()
