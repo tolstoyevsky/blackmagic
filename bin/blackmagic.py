@@ -2,7 +2,6 @@
 import logging
 import os
 import os.path
-import re
 import subprocess
 from functools import wraps
 
@@ -68,7 +67,7 @@ class RPCHandler(RPCServer):
     def __init__(self, application, request, **kwargs):
         RPCServer.__init__(self, application, request, **kwargs)
 
-        self.apt_lock = False
+        self.apt_proc = None
         self.global_lock = False
         self.lock_message = 'Locked'
 
@@ -92,7 +91,7 @@ class RPCHandler(RPCServer):
     def get_base_packages_list(self):
         return self.base_packages_list
 
-    @only_if_unlocked
+    @only_if_unlocked  # TODO: get rid of the lock
     @remote
     def get_built_images(self):
         return []
@@ -150,21 +149,33 @@ class RPCHandler(RPCServer):
     @only_if_unlocked
     @remote
     def resolve(self, packages_list):
-        if not self.apt_lock:
-            self.apt_lock = True
+        if self.apt_proc:
+            self.apt_proc.kill()
 
-            command = ['chroot', options.base_system, '/usr/bin/apt-get',
-                       'install', '--no-act', '-qq'] + packages_list
-            proc = subprocess.Popen(command,
-                                    stdout=subprocess.PIPE,
-                                    stdin=subprocess.PIPE)
-            stdout_data, stderr_data = proc.communicate()
-            res = re.findall('Inst ([-\w\d\.]+)', str(stdout_data))
+        packages_to_be_installed = set()
 
-            self.apt_lock = False
+        command_line = ['chroot', options.base_system, '/usr/bin/apt-get',
+                        'install', '--no-act', '-qq'] + packages_list
+        self.apt_proc = subprocess.Popen(command_line,
+                                         stdout=subprocess.PIPE,
+                                         stdin=subprocess.PIPE)
+        stdout_data, stderr_data = self.apt_proc.communicate()
+        for line in stdout_data.decode().splitlines():
+            # The output of the above command line will look like the
+            # following set of lines:
+            # Inst libgdbm3 (1.8.3-13.1 Debian:8.4/stable [armhf])
+            # Inst libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
+            # Inst libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
+            # ...
+            #
+            # The second word in each line is a package name.
+            packages_to_be_installed.add(line.split(' ')[1])
 
-            return list(set(res) - set(packages_list))
-        return self.lock_message
+        dependencies = packages_to_be_installed - set(packages_list)
+
+        self.apt_proc = None
+
+        return list(dependencies)
 
 
 def main():
