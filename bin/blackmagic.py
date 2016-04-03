@@ -179,7 +179,7 @@ class RPCHandler(RPCServer):
 
         self.apt_proc = None
 
-        return list(dependencies)
+        return list(dependencies)  # Python sets are not JSON serializable
 
 
 def main():
