@@ -161,6 +161,9 @@ class RPCHandler(RPCServer):
                                          stdout=subprocess.PIPE,
                                          stdin=subprocess.PIPE)
         stdout_data, stderr_data = self.apt_proc.communicate()
+        if self.apt_proc.returncode == -9:  # terminated
+            return []
+
         for line in stdout_data.decode().splitlines():
             # The output of the above command line will look like the
             # following set of lines:
