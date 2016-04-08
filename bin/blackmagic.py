@@ -3,16 +3,19 @@ import logging
 import os
 import os.path
 import subprocess
+import sys
 from functools import wraps
 
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
+from configurations.management import execute_from_command_line
 from debian import deb822
 from pymongo import MongoClient
 from tornado.options import define, options
 
 from shirow.server import RPCServer, remote
+from users.models import User
 
 define('base_system',
        default='/var/blackmagic/jessie-armhf',
@@ -94,6 +97,7 @@ class RPCHandler(RPCServer):
     @only_if_unlocked  # TODO: get rid of the lock
     @remote
     def get_built_images(self):
+        user = User.objects.get(id=self.user_id)  # Example
         return []
 
     @only_if_unlocked
@@ -222,4 +226,5 @@ def main():
 
 
 if __name__ == "__main__":
+    execute_from_command_line(sys.argv)
     main()
