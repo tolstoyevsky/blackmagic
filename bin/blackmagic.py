@@ -9,9 +9,9 @@ import tornado.ioloop
 import tornado.web
 import tornado.websocket
 from debian import deb822
-
-from tornado.options import define, options
 from pymongo import MongoClient
+from tornado.options import define, options
+
 from shirow.server import RPCServer, remote
 
 define('base_system',
