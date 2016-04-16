@@ -3,13 +3,15 @@ import logging
 import os
 import os.path
 import subprocess
-import sys
 from functools import wraps
 
+import configurations.management
+# In spite of the fact that the above-mentioned import is never used throughout
+# the code, the django.core.exceptions.ImproperlyConfigured exception will be
+# raised if it's removed.
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
-from configurations.management import execute_from_command_line
 from debian import deb822
 from pymongo import MongoClient
 from tornado.options import define, options
@@ -226,5 +228,4 @@ def main():
 
 
 if __name__ == "__main__":
-    execute_from_command_line(sys.argv)
     main()
