@@ -37,6 +37,10 @@ TOKEN_KEY = 'secret'
 
 
 class MockRPCServer(RPCHandler):
+    def __init__(self, application, request, **kwargs):
+        RPCHandler.__init__(self, application, request, **kwargs)
+        self.global_lock = False
+
     def initialize(self, close_future, compression_options=None):
         self.close_future = close_future
         self.compression_options = compression_options

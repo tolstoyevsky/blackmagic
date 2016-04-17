@@ -43,14 +43,18 @@ LOGGER = logging.getLogger('tornado.application')
 
 def only_if_unlocked(func):
     """Executes a remote procedure only if the RPC server is unlocked. Every
-    single remote procedure, except initialize, has to be decorated with
-    only_if_unlocked."""
+    single remote procedure has to be decorated with only_if_unlocked. The
+    exceptions are:
+    * init
+    * get_built_images
+    * get_target_devices_list"""
 
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if not self.global_lock:
             return func(self, *args, **kwargs)
         else:
+            # TODO: come up with a better solution than returning some message
             return self.lock_message
 
     return wrapper
@@ -73,7 +77,7 @@ class RPCHandler(RPCServer):
         RPCServer.__init__(self, application, request, **kwargs)
 
         self.apt_proc = None
-        self.global_lock = False
+        self.global_lock = True
         self.lock_message = 'Locked'
 
         client = MongoClient(options.mongodb_host, options.mongodb_port)
@@ -84,6 +88,7 @@ class RPCHandler(RPCServer):
 
     @remote
     def init(self, target_device):
+        self.global_lock = False
         return 'Ready'
 
     @only_if_unlocked
@@ -96,7 +101,6 @@ class RPCHandler(RPCServer):
     def get_base_packages_list(self):
         return self.base_packages_list
 
-    @only_if_unlocked  # TODO: get rid of the lock
     @remote
     def get_built_images(self):
         user = User.objects.get(id=self.user_id)  # Example
@@ -120,7 +124,6 @@ class RPCHandler(RPCServer):
 
         return packages_list
 
-    @only_if_unlocked
     @remote
     def get_target_devices_list(self):
         target_devices_list = [
