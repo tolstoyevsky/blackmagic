@@ -2,7 +2,9 @@
 import logging
 import os
 import os.path
+import shutil
 import subprocess
+import uuid
 from functools import wraps
 
 import configurations.management
@@ -77,8 +79,10 @@ class RPCHandler(RPCServer):
         RPCServer.__init__(self, application, request, **kwargs)
 
         self.apt_proc = None
+        self.copy_lock = False
         self.global_lock = True
         self.lock_message = 'Locked'
+        self.rootfs = os.path.join(options.workspace, str(uuid.uuid4()))
 
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
@@ -86,10 +90,29 @@ class RPCHandler(RPCServer):
 
         self.packages_number = self.collection.find().count()
 
+    def destroy(self):
+        if os.path.isdir(self.rootfs):
+            LOGGER.debug('Remove {}'.format(self.rootfs))
+            shutil.rmtree(self.rootfs)
+
     @remote
     def init(self, target_device):
-        self.global_lock = False
-        return 'Ready'
+        if not self.copy_lock:
+            self.copy_lock = True
+            LOGGER.debug('Start Copying {} to {}'.format(options.workspace,
+                                                         self.rootfs))
+            dst = os.path.join(options.workspace, self.rootfs)
+            # TODO: use shutil.copytree
+            command_line = ['cp', '-r', options.base_system, dst]
+            proc = subprocess.Popen(command_line)
+            proc.wait()
+            LOGGER.debug('Finish copying')
+
+            self.copy_lock = False
+            self.global_lock = False
+
+            return 'Ready'
+        return self.lock_message
 
     @only_if_unlocked
     @remote
