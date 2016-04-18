@@ -4,6 +4,7 @@ import os
 import os.path
 import shutil
 import subprocess
+import tarfile
 import uuid
 from functools import wraps
 
@@ -11,6 +12,7 @@ import configurations.management
 # In spite of the fact that the above-mentioned import is never used throughout
 # the code, the django.core.exceptions.ImproperlyConfigured exception will be
 # raised if it's removed.
+import django
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
@@ -18,6 +20,7 @@ from debian import deb822
 from pymongo import MongoClient
 from tornado.options import define, options
 
+from firmwares.models import Firmware
 from shirow.server import RPCServer, remote
 from users.models import User
 
@@ -79,16 +82,28 @@ class RPCHandler(RPCServer):
         RPCServer.__init__(self, application, request, **kwargs)
 
         self.apt_proc = None
+        self.user = None
+
+        self.build_lock = False
         self.copy_lock = False
         self.global_lock = True
         self.lock_message = 'Locked'
-        self.rootfs = os.path.join(options.workspace, str(uuid.uuid4()))
+
+        self.firmware_name = str(uuid.uuid4())
+        self.rootfs = os.path.join(options.workspace, self.firmware_name)
 
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
         self.collection = self.db[options.collection_name]
 
         self.packages_number = self.collection.find().count()
+
+    def _get_user(self):
+        if not self.user:
+            self.user = User.objects.get(id=self.user_id)
+            return self.user
+        else:
+            return self.user
 
     def destroy(self):
         if os.path.isdir(self.rootfs):
@@ -117,7 +132,17 @@ class RPCHandler(RPCServer):
     @only_if_unlocked
     @remote
     def build(self, packages_list):
-        return 'Ready'
+        # TODO: get rid of the packages_list parameter because it's redundant
+
+        if not self.build_lock:
+            os.chdir(options.workspace)
+            with tarfile.open(self.rootfs + '.tar.gz', 'w:gz') as tar:
+                tar.add(self.firmware_name)
+
+            firmware = Firmware(name=self.firmware_name, user=self._get_user())
+            firmware.save()
+
+            return 'Ready'
 
     @only_if_unlocked
     @remote
@@ -126,8 +151,9 @@ class RPCHandler(RPCServer):
 
     @remote
     def get_built_images(self):
-        user = User.objects.get(id=self.user_id)  # Example
-        return []
+        user = User.objects.get(id=self.user_id)
+        firmwares = Firmware.objects.filter(user=user)
+        return [firmware.name for firmware in firmwares]
 
     @only_if_unlocked
     @remote
@@ -236,6 +262,8 @@ def main():
 
     app = Application()
     app.listen(options.port)
+
+    django.setup()
 
     passwd_file = os.path.join(options.base_system, 'etc/passwd')
     status_file = os.path.join(options.base_system, 'var/lib/dpkg/status')
