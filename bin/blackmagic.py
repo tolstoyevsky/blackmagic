@@ -68,7 +68,7 @@ def only_if_unlocked(func):
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
-            (r'/rpc/token/([\w\.]+)', RPCHandler),
+            (r'/rpc/token/([_\-\w\.]+)', RPCHandler),
         ]
         tornado.web.Application.__init__(self, handlers)
 
