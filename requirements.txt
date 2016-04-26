@@ -4,3 +4,7 @@ django-configurations
 psycopg2
 pymongo
 python-debian
+
+-e git+ssh://git@bitbucket.org/cusdeb/django-cusdeb-firmwares.git#egg=django-cusdeb-firmwares
+-e git+ssh://git@bitbucket.org/cusdeb/django-cusdeb-users.git#egg=django-cusdeb-users
+-e git+ssh://git@bitbucket.org/cusdeb/shirow.git#egg=shirow
