@@ -20,6 +20,7 @@ import tornado.websocket
 from debian import deb822
 from django.conf import settings
 from pymongo import MongoClient
+from tornado import gen
 from tornado.options import define, options
 
 from firmwares.models import Firmware
@@ -61,8 +62,7 @@ def only_if_unlocked(func):
         if not self.global_lock:
             return func(self, *args, **kwargs)
         else:
-            # TODO: come up with a better solution than returning some message
-            return self.lock_message
+            return self._say_server_locked()
 
     return wrapper
 
@@ -106,6 +106,10 @@ class RPCHandler(RPCServer):
             return self.user
         else:
             return self.user
+
+    @gen.coroutine
+    def _say_server_locked(self):
+        return self.lock_message
 
     def destroy(self):
         if os.path.isdir(self.rootfs):
