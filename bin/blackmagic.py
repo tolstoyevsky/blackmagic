@@ -77,7 +77,6 @@ class Application(tornado.web.Application):
 
 class RPCHandler(RPCServer):
     base_packages_list = []
-    packages_list = []  # TODO: get rid of
     users_list = []
 
     def __init__(self, application, request, **kwargs):
@@ -90,6 +89,8 @@ class RPCHandler(RPCServer):
         self.copy_lock = False
         self.global_lock = True
         self.lock_message = 'Locked'
+
+        self.selected_packages = []
 
         self.firmware_name = str(uuid.uuid4())
         self.rootfs = os.path.join(options.workspace, self.firmware_name)
@@ -149,6 +150,13 @@ class RPCHandler(RPCServer):
             if os.environ.get('DJANGO_CONFIGURATION', '') == 'Test':
                 time.sleep(settings.PAUSE)
             else:
+                command_line = ['chroot', options.base_system,
+                                '/usr/bin/apt-get',
+                                'install',
+                                '--yes'] + self.selected_packages
+                proc = subprocess.Popen(command_line)
+                proc.wait()
+
                 os.chdir(options.workspace)
                 with tarfile.open(self.rootfs + '.tar.gz', 'w:gz') as tar:
                     tar.add(self.firmware_name)
@@ -227,6 +235,8 @@ class RPCHandler(RPCServer):
         if self.apt_proc:
             LOGGER.debug('APT process has been terminated')
             self.apt_proc.kill()
+
+        self.selected_packages = packages_list
 
         packages_to_be_installed = set()
 
