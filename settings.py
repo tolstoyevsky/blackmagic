@@ -20,3 +20,7 @@ class Dev(Base):
 
 class Prod(Base):
     pass  # TODO: specify configuration for the Prod environment
+
+
+class Test(Dev):
+    PAUSE = 10  # sec

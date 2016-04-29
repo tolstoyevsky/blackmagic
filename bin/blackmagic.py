@@ -5,6 +5,7 @@ import os.path
 import shutil
 import subprocess
 import tarfile
+import time
 import uuid
 from functools import wraps
 
@@ -17,6 +18,7 @@ import tornado.ioloop
 import tornado.web
 import tornado.websocket
 from debian import deb822
+from django.conf import settings
 from pymongo import MongoClient
 from tornado.options import define, options
 
@@ -114,14 +116,18 @@ class RPCHandler(RPCServer):
     def init(self, target_device):
         if not self.copy_lock:
             self.copy_lock = True
-            LOGGER.debug('Start Copying {} to {}'.format(options.workspace,
-                                                         self.rootfs))
-            dst = os.path.join(options.workspace, self.rootfs)
-            # TODO: use shutil.copytree
-            command_line = ['cp', '-r', options.base_system, dst]
-            proc = subprocess.Popen(command_line)
-            proc.wait()
-            LOGGER.debug('Finish copying')
+
+            if os.environ.get('DJANGO_CONFIGURATION', '') == 'Test':
+                time.sleep(settings.PAUSE)
+            else:
+                LOGGER.debug('Start Copying {} to {}'.format(options.workspace,
+                                                             self.rootfs))
+                dst = os.path.join(options.workspace, self.rootfs)
+                # TODO: use shutil.copytree
+                command_line = ['cp', '-r', options.base_system, dst]
+                proc = subprocess.Popen(command_line)
+                proc.wait()
+                LOGGER.debug('Finish copying')
 
             self.copy_lock = False
             self.global_lock = False
@@ -134,12 +140,20 @@ class RPCHandler(RPCServer):
         # TODO: get rid of the packages_list parameter because it's redundant
 
         if not self.build_lock:
-            os.chdir(options.workspace)
-            with tarfile.open(self.rootfs + '.tar.gz', 'w:gz') as tar:
-                tar.add(self.firmware_name)
+            self.build_lock = True
 
-            firmware = Firmware(name=self.firmware_name, user=self._get_user())
-            firmware.save()
+            if os.environ.get('DJANGO_CONFIGURATION', '') == 'Test':
+                time.sleep(settings.PAUSE)
+            else:
+                os.chdir(options.workspace)
+                with tarfile.open(self.rootfs + '.tar.gz', 'w:gz') as tar:
+                    tar.add(self.firmware_name)
+
+                firmware = Firmware(name=self.firmware_name,
+                                    user=self._get_user())
+                firmware.save()
+
+            self.build_lock = False
 
             return 'Ready'
 
