@@ -93,7 +93,10 @@ class RPCHandler(RPCServer):
         self.selected_packages = []
 
         self.firmware_name = str(uuid.uuid4())
-        self.rootfs = os.path.join(options.workspace, self.firmware_name)
+        if os.environ.get('DJANGO_CONFIGURATION', '') == 'Test':
+            self.rootfs = options.base_system
+        else:
+            self.rootfs = os.path.join(options.workspace, self.firmware_name)
 
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
@@ -113,7 +116,8 @@ class RPCHandler(RPCServer):
         return self.lock_message
 
     def destroy(self):
-        if os.path.isdir(self.rootfs):
+        if os.environ.get('DJANGO_CONFIGURATION', '') != 'Test' and \
+           os.path.isdir(self.rootfs):
             LOGGER.debug('Remove {}'.format(self.rootfs))
             shutil.rmtree(self.rootfs)
 
@@ -240,7 +244,7 @@ class RPCHandler(RPCServer):
 
         packages_to_be_installed = set()
 
-        command_line = ['chroot', options.base_system, '/usr/bin/apt-get',
+        command_line = ['chroot', self.rootfs, '/usr/bin/apt-get',
                         'install', '--no-act', '-qq'] + packages_list
         self.apt_proc = subprocess.Popen(command_line,
                                          stdout=subprocess.PIPE,
