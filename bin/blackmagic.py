@@ -142,6 +142,7 @@ class RPCHandler(RPCServer):
             self.global_lock = False
 
             return 'Ready'
+        return self.lock_message
 
     @only_if_unlocked
     @remote
@@ -172,6 +173,7 @@ class RPCHandler(RPCServer):
             self.build_lock = False
 
             return 'Ready'
+        return self.lock_message
 
     @only_if_unlocked
     @remote
