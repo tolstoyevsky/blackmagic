@@ -146,9 +146,7 @@ class RPCHandler(RPCServer):
 
     @only_if_unlocked
     @remote
-    def build(self, packages_list):
-        # TODO: get rid of the packages_list parameter because it's redundant
-
+    def build(self):
         if not self.build_lock:
             self.build_lock = True
 
