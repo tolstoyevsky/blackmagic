@@ -153,7 +153,7 @@ class RPCHandler(RPCServer):
             if os.environ.get('DJANGO_CONFIGURATION', '') == 'Test':
                 time.sleep(settings.PAUSE)
             else:
-                command_line = ['chroot', options.base_system,
+                command_line = ['chroot', self.rootfs,
                                 '/usr/bin/apt-get',
                                 'install',
                                 '--yes'] + self.selected_packages
