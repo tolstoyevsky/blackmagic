@@ -153,12 +153,13 @@ class RPCHandler(RPCServer):
             if os.environ.get('DJANGO_CONFIGURATION', '') == 'Test':
                 time.sleep(settings.PAUSE)
             else:
-                command_line = ['chroot', self.rootfs,
-                                '/usr/bin/apt-get',
-                                'install',
-                                '--yes'] + self.selected_packages
-                proc = subprocess.Popen(command_line)
-                proc.wait()
+                if self.selected_packages:
+                    command_line = ['chroot', self.rootfs,
+                                    '/usr/bin/apt-get',
+                                    'install',
+                                    '--yes'] + self.selected_packages
+                    proc = subprocess.Popen(command_line)
+                    proc.wait()
 
                 os.chdir(options.workspace)
                 with tarfile.open(self.rootfs + '.tar.gz', 'w:gz') as tar:
