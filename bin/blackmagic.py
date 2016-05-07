@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import fcntl
 import logging
 import os
 import os.path
@@ -237,9 +238,19 @@ class RPCHandler(RPCServer):
     @only_if_unlocked
     @remote
     def resolve(self, packages_list):
-        if self.apt_proc:
-            LOGGER.debug('APT process has been terminated')
+        lock_file = self.rootfs + '/var/lib/dpkg/lock'
+        lock = os.open(lock_file, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW)
+        try:
+            fcntl.lockf(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            LOGGER.debug('Two requests for resolving dependencies were sent '
+                         'almost at the same time')
+            # One of the previously sent requests had enough time to hold
+            # the lock, but another one didn't.
             self.apt_proc.kill()
+        finally:
+            fcntl.lockf(lock, fcntl.LOCK_UN)
+            os.close(lock)
 
         self.selected_packages = packages_list
 
@@ -251,8 +262,6 @@ class RPCHandler(RPCServer):
                                          stdout=subprocess.PIPE,
                                          stdin=subprocess.PIPE)
         stdout_data, stderr_data = self.apt_proc.communicate()
-        if self.apt_proc.returncode == -9:  # terminated
-            return []
 
         for line in stdout_data.decode().splitlines():
             # The output of the above command line will look like the
