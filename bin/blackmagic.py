@@ -123,7 +123,7 @@ class RPCHandler(RPCServer):
             shutil.rmtree(self.rootfs)
 
     @remote
-    def init(self, target_device):
+    def init(self, name, target_device, distro, distro_suite):
         if not self.copy_lock:
             self.copy_lock = True
 
