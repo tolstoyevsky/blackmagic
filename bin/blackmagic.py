@@ -220,6 +220,11 @@ class RPCHandler(RPCServer):
 
         return packages_list
 
+    @only_if_unlocked
+    @remote
+    def get_shells_list(self):
+        return ['/bin/sh', '/bin/dash', '/bin/bash', '/bin/rbash']
+
     @remote
     def get_target_devices_list(self):
         target_devices_list = [
