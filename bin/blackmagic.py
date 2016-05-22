@@ -3,6 +3,7 @@ import fcntl
 import logging
 import os
 import os.path
+import pwd
 import shutil
 import subprocess
 import tarfile
@@ -83,8 +84,8 @@ class RPCHandler(RPCServer):
     def __init__(self, application, request, **kwargs):
         RPCServer.__init__(self, application, request, **kwargs)
 
-        self.apt_proc = None
         self.user = None
+        self.user_name = pwd.getpwuid(1000).pw_name
 
         self.build_lock = False
         self.copy_lock = False
@@ -238,30 +239,24 @@ class RPCHandler(RPCServer):
     @only_if_unlocked
     @remote
     def resolve(self, packages_list):
-        lock_file = self.rootfs + '/var/lib/dpkg/lock'
-        lock = os.open(lock_file, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW)
-        try:
-            fcntl.lockf(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            LOGGER.debug('Two requests for resolving dependencies were sent '
-                         'almost at the same time')
-            # One of the previously sent requests had enough time to hold
-            # the lock, but another one didn't.
-            self.apt_proc.kill()
-        finally:
-            fcntl.lockf(lock, fcntl.LOCK_UN)
-            os.close(lock)
-
         self.selected_packages = packages_list
 
         packages_to_be_installed = set()
 
-        command_line = ['chroot', self.rootfs, '/usr/bin/apt-get',
-                        'install', '--no-act', '-qq'] + packages_list
-        self.apt_proc = subprocess.Popen(command_line,
-                                         stdout=subprocess.PIPE,
-                                         stdin=subprocess.PIPE)
-        stdout_data, stderr_data = self.apt_proc.communicate()
+        command_line = [
+            # TODO: do not run the RPC server as root
+            'sudo', '-u', self.user_name,
+            'apt-get', 'install', '--no-act', '-qq',
+            '-o', 'APT::Architecture=all',
+            '-o', 'APT::Architecture=armhf',
+            '-o', 'Dir=' + self.rootfs,
+            '-o', 'Dir::State::status=' + self.rootfs + '/var/lib/dpkg/status'
+        ] + packages_list
+
+        apt_proc = subprocess.Popen(command_line,
+                                    stdout=subprocess.PIPE,
+                                    stdin=subprocess.PIPE)
+        stdout_data, stderr_data = apt_proc.communicate()
 
         for line in stdout_data.decode().splitlines():
             # The output of the above command line will look like the
@@ -279,8 +274,6 @@ class RPCHandler(RPCServer):
             packages_to_be_installed.add(line.split(' ')[1])
 
         dependencies = packages_to_be_installed - set(packages_list)
-
-        self.apt_proc = None
 
         return list(dependencies)  # Python sets are not JSON serializable
 
