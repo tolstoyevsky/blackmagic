@@ -86,6 +86,7 @@ class RPCHandler(RPCServer):
 
         self.user = None
         self.user_name = pwd.getpwuid(1000).pw_name
+        self.users = []
 
         self.build_lock = False
         self.copy_lock = False
@@ -175,6 +176,20 @@ class RPCHandler(RPCServer):
 
             return 'Ready'
         return self.lock_message
+
+    @only_if_unlocked
+    @remote
+    def add_user(self, username, password, uid, gid, comment, homedir, shell):
+        self.users.append({
+            'username': username,
+            'password': password,
+            'uid': uid,
+            'gid': gid,
+            'comment': comment,
+            'homedir': homedir,
+            'shell': shell
+        })
+        return 'ok'
 
     @only_if_unlocked
     @remote
