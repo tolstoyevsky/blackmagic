@@ -2,7 +2,6 @@
 import logging
 import os
 import os.path
-import pwd
 import re
 import shutil
 import subprocess
@@ -39,11 +38,17 @@ define('collection_name',
 define('db_name',
        default='cusdeb',
        help='')
+define('keyring_package',
+       default='/var/blackmagic/debian-archive-keyring_2014.3_all.deb',
+       help='')
 define('mongodb_host',
        default='localhost',
        help='')
 define('mongodb_port',
        default=27017,
+       help='')
+define('status_file',
+       default='/var/blackmagic/status',
        help='')
 define('workspace',
        default='/var/blackmagic/workspace')
@@ -87,21 +92,17 @@ class RPCHandler(RPCServer):
         self.inst_pattern = re.compile('Inst ([-\.\w]+)')
 
         self.user = None
-        self.user_name = pwd.getpwuid(1000).pw_name
         self.users = []
 
         self.build_lock = False
-        self.copy_lock = False
         self.global_lock = True
+        self.init_lock = False
         self.lock_message = 'Locked'
 
         self.selected_packages = []
 
         self.firmware_name = str(uuid.uuid4())
-        if os.environ.get('DJANGO_CONFIGURATION', '') == 'Test':
-            self.rootfs = options.base_system
-        else:
-            self.rootfs = os.path.join(options.workspace, self.firmware_name)
+        self.rootfs = os.path.join(options.workspace, self.firmware_name)
 
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
@@ -121,29 +122,52 @@ class RPCHandler(RPCServer):
         return self.lock_message
 
     def destroy(self):
-        if os.environ.get('DJANGO_CONFIGURATION', '') != 'Test' and \
-           os.path.isdir(self.rootfs):
+        if os.path.isdir(self.rootfs):
             LOGGER.debug('Remove {}'.format(self.rootfs))
             shutil.rmtree(self.rootfs)
 
     @remote
     def init(self, name, target_device, distro, distro_suite):
-        if not self.copy_lock:
-            self.copy_lock = True
+        if not self.init_lock:
+            self.init_lock = True
 
-            if os.environ.get('DJANGO_CONFIGURATION', '') == 'Test':
-                time.sleep(settings.PAUSE)
-            else:
-                LOGGER.debug('Start Copying {} to {}'.format(options.workspace,
-                                                             self.rootfs))
-                dst = os.path.join(options.workspace, self.rootfs)
-                # TODO: use shutil.copytree
-                command_line = ['cp', '-r', options.base_system, dst]
-                proc = subprocess.Popen(command_line)
-                proc.wait()
-                LOGGER.debug('Finish copying')
+            LOGGER.debug('Creating hierarchy in {}'.format(self.rootfs))
+            hiera = [
+                '/etc/apt',
+                '/etc/apt/preferences.d',
+                '/var/cache/apt/archives/partial',
+                '/var/lib/apt/lists/partial',
+                '/var/lib/dpkg',
+            ]
+            for directory in hiera:
+                os.makedirs(self.rootfs + directory)
 
-            self.copy_lock = False
+            shutil.copyfile(options.status_file,
+                            self.rootfs + '/var/lib/dpkg/status')
+
+            with open(self.rootfs + '/etc/apt/sources.list', 'w') as f:
+                f.write('deb http://ftp.ru.debian.org/debian jessie main')
+
+            command_line = ['dpkg', '-x', options.keyring_package, self.rootfs]
+            proc = subprocess.Popen(command_line)
+            proc.wait()
+
+            LOGGER.debug('Executing apt-get update')
+
+            command_line = [
+                'apt-get', 'update', '-qq',
+                '-o', 'APT::Architecture=all',
+                '-o', 'APT::Architecture=armhf',
+                '-o', 'Dir=' + self.rootfs,
+                '-o', 'Dir::State::status=' + self.rootfs +
+                      '/var/lib/dpkg/status'
+            ]
+            proc = subprocess.Popen(command_line)
+            proc.wait()
+
+            LOGGER.debug('Finishing initialization')
+
+            self.init_lock = False
             self.global_lock = False
 
             return 'Ready'
@@ -264,8 +288,6 @@ class RPCHandler(RPCServer):
         self.selected_packages = packages_list
 
         command_line = [
-            # TODO: do not run the RPC server as root
-            'sudo', '-u', self.user_name,
             'apt-get', 'install', '--no-act', '-qq',
             '-o', 'APT::Architecture=all',
             '-o', 'APT::Architecture=armhf',
@@ -300,12 +322,18 @@ class RPCHandler(RPCServer):
 
 def main():
     tornado.options.parse_command_line()
-    if os.getuid() > 0:
-        LOGGER.error('The server can only be run by root')
-        exit(1)
-
     if not os.path.isdir(options.base_system):
         LOGGER.error('The directory specified via the base_system parameter '
+                     'does not exist')
+        exit(1)
+
+    if not os.path.isfile(options.keyring_package):
+        LOGGER.error('The file specified via the keyring_package parameter '
+                     'does not exist')
+        exit(1)
+
+    if not os.path.isfile(options.status_file):
+        LOGGER.error('The file specified via the status_file parameter '
                      'does not exist')
         exit(1)
 
