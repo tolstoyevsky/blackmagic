@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import fcntl
 import logging
 import os
 import os.path
 import pwd
+import re
 import shutil
 import subprocess
 import tarfile
@@ -83,6 +83,8 @@ class RPCHandler(RPCServer):
 
     def __init__(self, application, request, **kwargs):
         RPCServer.__init__(self, application, request, **kwargs)
+
+        self.inst_pattern = re.compile('Inst ([-\.\w]+)')
 
         self.user = None
         self.user_name = pwd.getpwuid(1000).pw_name
@@ -261,8 +263,6 @@ class RPCHandler(RPCServer):
     def resolve(self, packages_list):
         self.selected_packages = packages_list
 
-        packages_to_be_installed = set()
-
         command_line = [
             # TODO: do not run the RPC server as root
             'sudo', '-u', self.user_name,
@@ -278,22 +278,22 @@ class RPCHandler(RPCServer):
                                     stdin=subprocess.PIPE)
         stdout_data, stderr_data = apt_proc.communicate()
 
-        for line in stdout_data.decode().splitlines():
-            # The output of the above command line will look like the
-            # following set of lines:
-            # Inst libgdbm3 (1.8.3-13.1 Debian:8.4/stable [armhf])
-            # Inst libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
-            # Inst libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
-            # ...
-            # Conf libgdbm3 (1.8.3-13.1 Debian:8.4/stable [armhf])
-            # Conf libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
-            # Conf libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
-            # ...
-            #
-            # The second word in each line is a package name.
-            packages_to_be_installed.add(line.split(' ')[1])
-
-        dependencies = packages_to_be_installed - set(packages_list)
+        # The output of the above command line will look like the
+        # following set of lines:
+        # NOTE: This is only a simulation!
+        #       apt-get needs root privileges for real execution.
+        #       Keep also in mind that locking is deactivated,
+        #       so don't depend on the relevance to the real current situation!
+        # Inst libgdbm3 (1.8.3-13.1 Debian:8.4/stable [armhf])
+        # Inst libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
+        # Inst libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
+        # ...
+        # Conf libgdbm3 (1.8.3-13.1 Debian:8.4/stable [armhf])
+        # Conf libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
+        # Conf libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
+        # ...
+        packages_to_be_installed = self.inst_pattern.findall(str(stdout_data))
+        dependencies = set(packages_to_be_installed) - set(packages_list)
 
         return list(dependencies)  # Python sets are not JSON serializable
 
