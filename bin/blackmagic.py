@@ -15,7 +15,6 @@ import configurations.management
 # the code, the django.core.exceptions.ImproperlyConfigured exception will be
 # raised if it's removed.
 import django
-import tornado.ioloop
 import tornado.web
 import tornado.websocket
 from debian import deb822
@@ -25,7 +24,7 @@ from tornado import gen
 from tornado.options import define, options
 
 from firmwares.models import Firmware
-from shirow.server import RPCServer, remote
+from shirow.server import IOLoop, RPCServer, remote
 from users.models import User
 
 define('base_system',
@@ -342,9 +341,6 @@ def main():
                      'does not exist')
         exit(1)
 
-    app = Application()
-    app.listen(options.port)
-
     django.setup()
 
     passwd_file = os.path.join(options.base_system, 'etc/passwd')
@@ -360,8 +356,7 @@ def main():
 
     LOGGER.info('RPC server is ready!')
 
-    tornado.ioloop.IOLoop.instance().start()
-
+    IOLoop().start(Application(), options.port)
 
 if __name__ == "__main__":
     main()
