@@ -24,7 +24,8 @@ from tornado import gen
 from tornado.options import define, options
 
 from firmwares.models import Firmware
-from shirow.server import IOLoop, RPCServer, remote
+from shirow.ioloop import IOLoop
+from shirow.server import RPCServer, remote
 from users.models import User
 
 define('base_system',
@@ -126,7 +127,7 @@ class RPCHandler(RPCServer):
             shutil.rmtree(self.rootfs)
 
     @remote
-    def init(self, name, target_device, distro, distro_suite):
+    def init(self, request, name, target_device, distro, distro_suite):
         if not self.init_lock:
             self.init_lock = True
 
@@ -169,12 +170,12 @@ class RPCHandler(RPCServer):
             self.init_lock = False
             self.global_lock = False
 
-            return 'Ready'
-        return self.lock_message
+            request.ret('Ready')
+        request.ret(self.lock_message)
 
     @only_if_unlocked
     @remote
-    def build(self):
+    def build(self, request):
         if not self.build_lock:
             self.build_lock = True
 
@@ -199,12 +200,12 @@ class RPCHandler(RPCServer):
 
             self.build_lock = False
 
-            return 'Ready'
-        return self.lock_message
+            request.ret('Ready')
+        request(self.lock_message)
 
     @only_if_unlocked
     @remote
-    def add_user(self, username, password, uid, gid, comment, homedir, shell):
+    def add_user(self, request, username, password, uid, gid, comment, homedir, shell):
         self.users.append({
             'username': username,
             'password': password,
@@ -214,22 +215,22 @@ class RPCHandler(RPCServer):
             'homedir': homedir,
             'shell': shell
         })
-        return 'ok'
+        request.ret('ok')
 
     @only_if_unlocked
     @remote
-    def get_base_packages_list(self):
-        return self.base_packages_list
+    def get_base_packages_list(self, request):
+        request.ret(self.base_packages_list)
 
     @remote
-    def get_built_images(self):
+    def get_built_images(self, request):
         user = User.objects.get(id=self.user_id)
         firmwares = Firmware.objects.filter(user=user)
-        return [firmware.name for firmware in firmwares]
+        request.ret([firmware.name for firmware in firmwares])
 
     @only_if_unlocked
     @remote
-    def get_packages_list(self, page_number, per_page):
+    def get_packages_list(self, request, page_number, per_page):
         if page_number > 0:
             start_position = (page_number - 1) * per_page
         else:
@@ -243,33 +244,33 @@ class RPCHandler(RPCServer):
             document['_id'] = str(document['_id'])
             packages_list.append(document)
 
-        return packages_list
+        request.ret(packages_list)
 
     @only_if_unlocked
     @remote
-    def get_shells_list(self):
-        return ['/bin/sh', '/bin/dash', '/bin/bash', '/bin/rbash']
+    def get_shells_list(self, request):
+        request.ret(['/bin/sh', '/bin/dash', '/bin/bash', '/bin/rbash'])
 
     @remote
-    def get_target_devices_list(self):
+    def get_target_devices_list(self, request):
         target_devices_list = [
             'Raspberry Pi 2',
         ]
-        return target_devices_list
+        request.ret(target_devices_list)
 
     @only_if_unlocked
     @remote
-    def get_packages_number(self):
-        return self.packages_number
+    def get_packages_number(self, request):
+        request.ret(self.packages_number)
 
     @only_if_unlocked
     @remote
-    def get_users_list(self):
-        return self.users_list
+    def get_users_list(self, request):
+        request.ret(self.users_list)
 
     @only_if_unlocked
     @remote
-    def search(self, query):
+    def search(self, request, query):
         packages_list = []
         if query:
             matches = self.db.command('text', options.collection_name,
@@ -279,11 +280,11 @@ class RPCHandler(RPCServer):
                     document['obj'].pop('_id')
                     packages_list.append(document['obj'])
 
-        return packages_list
+        request.ret(packages_list)
 
     @only_if_unlocked
     @remote
-    def resolve(self, packages_list):
+    def resolve(self, request, packages_list):
         self.selected_packages = packages_list
 
         command_line = [
@@ -316,7 +317,8 @@ class RPCHandler(RPCServer):
         packages_to_be_installed = self.inst_pattern.findall(str(stdout_data))
         dependencies = set(packages_to_be_installed) - set(packages_list)
 
-        return list(dependencies)  # Python sets are not JSON serializable
+        # Python sets are not JSON serializable
+        request.ret(list(dependencies))
 
 
 def main():
