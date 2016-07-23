@@ -22,6 +22,7 @@ from django.conf import settings
 from pymongo import MongoClient
 from tornado import gen
 from tornado.options import define, options
+from tornado.process import Subprocess
 
 from firmwares.models import Firmware
 from shirow.ioloop import IOLoop
@@ -54,6 +55,12 @@ define('workspace',
        default='/var/blackmagic/workspace')
 
 LOGGER = logging.getLogger('tornado.application')
+
+READY = 10
+PREPARE_ENV = 14
+MARK_ESSENTIAL_PACKAGES_AS_INSTALLED = 15
+INSTALL_KEYRING_PACKAGE = 16
+UPDATE_INDICES = 17
 
 
 def only_if_unlocked(func):
@@ -132,6 +139,13 @@ class RPCHandler(RPCServer):
             self.init_lock = True
 
             LOGGER.debug('Creating hierarchy in {}'.format(self.rootfs))
+            request.ret_and_continue(PREPARE_ENV)
+            # Such things like preparing resolver environment, marking
+            # essential packages as installed and installing
+            # debian-archive-keyring package don't take much time, so we let
+            # users know what's going on by adding small pauses.
+            yield gen.sleep(1)
+
             hiera = [
                 '/etc/apt',
                 '/etc/apt/preferences.d',
@@ -142,17 +156,24 @@ class RPCHandler(RPCServer):
             for directory in hiera:
                 os.makedirs(self.rootfs + directory)
 
+            request.ret_and_continue(MARK_ESSENTIAL_PACKAGES_AS_INSTALLED)
+            yield gen.sleep(1)
+
             shutil.copyfile(options.status_file,
                             self.rootfs + '/var/lib/dpkg/status')
 
             with open(self.rootfs + '/etc/apt/sources.list', 'w') as f:
                 f.write('deb http://ftp.ru.debian.org/debian jessie main')
 
+            request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
+            yield gen.sleep(1)
+
             command_line = ['dpkg', '-x', options.keyring_package, self.rootfs]
-            proc = subprocess.Popen(command_line)
-            proc.wait()
+            proc = Subprocess(command_line)
+            yield proc.wait_for_exit()
 
             LOGGER.debug('Executing apt-get update')
+            request.ret_and_continue(UPDATE_INDICES)
 
             command_line = [
                 'apt-get', 'update', '-qq',
@@ -162,15 +183,15 @@ class RPCHandler(RPCServer):
                 '-o', 'Dir::State::status=' + self.rootfs +
                       '/var/lib/dpkg/status'
             ]
-            proc = subprocess.Popen(command_line)
-            proc.wait()
+            proc = Subprocess(command_line)
+            yield proc.wait_for_exit()
 
             LOGGER.debug('Finishing initialization')
 
             self.init_lock = False
             self.global_lock = False
 
-            request.ret('Ready')
+            request.ret(READY)
         request.ret(self.lock_message)
 
     @only_if_unlocked
