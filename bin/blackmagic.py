@@ -5,8 +5,6 @@ import os.path
 import re
 import shutil
 import subprocess
-import tarfile
-import time
 import uuid
 from functools import wraps
 
@@ -17,8 +15,9 @@ import configurations.management
 import django
 import tornado.web
 import tornado.websocket
+from celery.result import AsyncResult
 from debian import deb822
-from django.conf import settings
+from dominion.tasks import build
 from pymongo import MongoClient
 from tornado import gen
 from tornado.options import define, options
@@ -200,29 +199,15 @@ class RPCHandler(RPCServer):
         if not self.build_lock:
             self.build_lock = True
 
-            if os.environ.get('DJANGO_CONFIGURATION', '') == 'Test':
-                time.sleep(settings.PAUSE)
-            else:
-                if self.selected_packages:
-                    command_line = ['chroot', self.rootfs,
-                                    '/usr/bin/apt-get',
-                                    'install',
-                                    '--yes'] + self.selected_packages
-                    proc = subprocess.Popen(command_line)
-                    proc.wait()
-
-                os.chdir(options.workspace)
-                with tarfile.open(self.rootfs + '.tar.gz', 'w:gz') as tar:
-                    tar.add(self.firmware_name)
-
-                firmware = Firmware(name=self.firmware_name,
-                                    user=self._get_user())
-                firmware.save()
+            result = AsyncResult(build.delay(self.user_id, self.firmware_name))
+            while not result.ready():
+                yield gen.sleep(1)
 
             self.build_lock = False
 
-            request.ret('Ready')
-        request(self.lock_message)
+            request.ret(READY)
+
+        request.ret(self.lock_message)
 
     @only_if_unlocked
     @remote
