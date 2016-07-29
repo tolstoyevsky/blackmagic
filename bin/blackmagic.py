@@ -56,6 +56,7 @@ define('workspace',
 LOGGER = logging.getLogger('tornado.application')
 
 READY = 10
+BUSY = 12
 PREPARE_ENV = 14
 MARK_ESSENTIAL_PACKAGES_AS_INSTALLED = 15
 INSTALL_KEYRING_PACKAGE = 16
@@ -139,6 +140,9 @@ class RPCHandler(RPCServer):
     def init(self, request, name, target_device, distro, distro_suite):
         if self.init_lock:
             request.ret(self.lock_message)
+
+        if self.build_lock:
+            request.ret(BUSY)
 
         self.init_lock = True
 
