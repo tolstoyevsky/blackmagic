@@ -137,69 +137,70 @@ class RPCHandler(RPCServer):
 
     @remote
     def init(self, request, name, target_device, distro, distro_suite):
-        if not self.init_lock:
-            self.init_lock = True
+        if self.init_lock:
+            request.ret(self.lock_message)
 
-            self.build_id = str(uuid.uuid4())
-            self.resolver_env = os.path.join(options.workspace, self.build_id)
+        self.init_lock = True
 
-            LOGGER.debug('Creating hierarchy in {}'.format(self.resolver_env))
-            request.ret_and_continue(PREPARE_ENV)
-            # Such things like preparing resolver environment, marking
-            # essential packages as installed and installing
-            # debian-archive-keyring package don't take much time, so we let
-            # users know what's going on by adding small pauses.
-            yield gen.sleep(1)
+        self.build_id = str(uuid.uuid4())
+        self.resolver_env = os.path.join(options.workspace, self.build_id)
 
-            hiera = [
-                '/etc/apt',
-                '/etc/apt/preferences.d',
-                '/var/cache/apt/archives/partial',
-                '/var/lib/apt/lists/partial',
-                '/var/lib/dpkg',
-            ]
-            for directory in hiera:
-                os.makedirs(self.resolver_env + directory)
+        LOGGER.debug('Creating hierarchy in {}'.format(self.resolver_env))
+        request.ret_and_continue(PREPARE_ENV)
+        # Such things like preparing resolver environment, marking essential
+        # packages as installed and installing debian-archive-keyring package
+        # don't take much time, so we let users know what's going on by adding
+        # small pauses.
+        yield gen.sleep(1)
 
-            request.ret_and_continue(MARK_ESSENTIAL_PACKAGES_AS_INSTALLED)
-            yield gen.sleep(1)
+        hiera = [
+            '/etc/apt',
+            '/etc/apt/preferences.d',
+            '/var/cache/apt/archives/partial',
+            '/var/lib/apt/lists/partial',
+            '/var/lib/dpkg',
+        ]
+        for directory in hiera:
+            os.makedirs(self.resolver_env + directory)
 
-            shutil.copyfile(options.status_file,
-                            self.resolver_env + '/var/lib/dpkg/status')
+        request.ret_and_continue(MARK_ESSENTIAL_PACKAGES_AS_INSTALLED)
+        yield gen.sleep(1)
 
-            with open(self.resolver_env + '/etc/apt/sources.list', 'w') as f:
-                f.write('deb http://ftp.ru.debian.org/debian jessie main')
+        shutil.copyfile(options.status_file,
+                        self.resolver_env + '/var/lib/dpkg/status')
 
-            request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
-            yield gen.sleep(1)
+        with open(self.resolver_env + '/etc/apt/sources.list', 'w') as f:
+            f.write('deb http://ftp.ru.debian.org/debian jessie main')
 
-            command_line = [
-                'dpkg', '-x', options.keyring_package, self.resolver_env
-            ]
-            proc = Subprocess(command_line)
-            yield proc.wait_for_exit()
+        request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
+        yield gen.sleep(1)
 
-            LOGGER.debug('Executing apt-get update')
-            request.ret_and_continue(UPDATE_INDICES)
+        command_line = [
+            'dpkg', '-x', options.keyring_package, self.resolver_env
+        ]
+        proc = Subprocess(command_line)
+        yield proc.wait_for_exit()
 
-            command_line = [
-                'apt-get', 'update', '-qq',
-                '-o', 'APT::Architecture=all',
-                '-o', 'APT::Architecture=armhf',
-                '-o', 'Dir=' + self.resolver_env,
-                '-o', 'Dir::State::status=' + self.resolver_env +
-                      '/var/lib/dpkg/status'
-            ]
-            proc = Subprocess(command_line)
-            yield proc.wait_for_exit()
+        LOGGER.debug('Executing apt-get update')
+        request.ret_and_continue(UPDATE_INDICES)
 
-            LOGGER.debug('Finishing initialization')
+        command_line = [
+            'apt-get', 'update', '-qq',
+            '-o', 'APT::Architecture=all',
+            '-o', 'APT::Architecture=armhf',
+            '-o', 'Dir=' + self.resolver_env,
+            '-o', 'Dir::State::status=' + self.resolver_env +
+                  '/var/lib/dpkg/status'
+        ]
+        proc = Subprocess(command_line)
+        yield proc.wait_for_exit()
 
-            self.init_lock = False
-            self.global_lock = False
+        LOGGER.debug('Finishing initialization')
 
-            request.ret(READY)
-        request.ret(self.lock_message)
+        self.init_lock = False
+        self.global_lock = False
+
+        request.ret(READY)
 
     @only_if_unlocked
     @remote
