@@ -95,6 +95,9 @@ class RPCHandler(RPCServer):
     def __init__(self, application, request, **kwargs):
         RPCServer.__init__(self, application, request, **kwargs)
 
+        self.build_id = None
+        self.resolver_env = None
+
         self.inst_pattern = re.compile('Inst ([-\.\w]+)')
 
         self.user = None
@@ -106,9 +109,6 @@ class RPCHandler(RPCServer):
         self.lock_message = 'Locked'
 
         self.selected_packages = []
-
-        self.firmware_name = str(uuid.uuid4())
-        self.rootfs = os.path.join(options.workspace, self.firmware_name)
 
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
@@ -123,21 +123,27 @@ class RPCHandler(RPCServer):
         else:
             return self.user
 
+    def _remove_resolver_env(self):
+        if os.path.isdir(self.resolver_env):
+            LOGGER.debug('Remove {}'.format(self.resolver_env))
+            shutil.rmtree(self.resolver_env)
+
     @gen.coroutine
     def _say_server_locked(self):
         return self.lock_message
 
     def destroy(self):
-        if os.path.isdir(self.rootfs):
-            LOGGER.debug('Remove {}'.format(self.rootfs))
-            shutil.rmtree(self.rootfs)
+        self._remove_resolver_env()
 
     @remote
     def init(self, request, name, target_device, distro, distro_suite):
         if not self.init_lock:
             self.init_lock = True
 
-            LOGGER.debug('Creating hierarchy in {}'.format(self.rootfs))
+            self.build_id = str(uuid.uuid4())
+            self.resolver_env = os.path.join(options.workspace, self.build_id)
+
+            LOGGER.debug('Creating hierarchy in {}'.format(self.resolver_env))
             request.ret_and_continue(PREPARE_ENV)
             # Such things like preparing resolver environment, marking
             # essential packages as installed and installing
@@ -153,21 +159,23 @@ class RPCHandler(RPCServer):
                 '/var/lib/dpkg',
             ]
             for directory in hiera:
-                os.makedirs(self.rootfs + directory)
+                os.makedirs(self.resolver_env + directory)
 
             request.ret_and_continue(MARK_ESSENTIAL_PACKAGES_AS_INSTALLED)
             yield gen.sleep(1)
 
             shutil.copyfile(options.status_file,
-                            self.rootfs + '/var/lib/dpkg/status')
+                            self.resolver_env + '/var/lib/dpkg/status')
 
-            with open(self.rootfs + '/etc/apt/sources.list', 'w') as f:
+            with open(self.resolver_env + '/etc/apt/sources.list', 'w') as f:
                 f.write('deb http://ftp.ru.debian.org/debian jessie main')
 
             request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
             yield gen.sleep(1)
 
-            command_line = ['dpkg', '-x', options.keyring_package, self.rootfs]
+            command_line = [
+                'dpkg', '-x', options.keyring_package, self.resolver_env
+            ]
             proc = Subprocess(command_line)
             yield proc.wait_for_exit()
 
@@ -178,8 +186,8 @@ class RPCHandler(RPCServer):
                 'apt-get', 'update', '-qq',
                 '-o', 'APT::Architecture=all',
                 '-o', 'APT::Architecture=armhf',
-                '-o', 'Dir=' + self.rootfs,
-                '-o', 'Dir::State::status=' + self.rootfs +
+                '-o', 'Dir=' + self.resolver_env,
+                '-o', 'Dir::State::status=' + self.resolver_env +
                       '/var/lib/dpkg/status'
             ]
             proc = Subprocess(command_line)
@@ -199,11 +207,13 @@ class RPCHandler(RPCServer):
         if not self.build_lock:
             self.build_lock = True
 
-            result = AsyncResult(build.delay(self.user_id, self.firmware_name))
+            result = AsyncResult(build.delay(self.user_id, self.build_id))
             while not result.ready():
                 yield gen.sleep(1)
 
             self.build_lock = False
+
+            self._remove_resolver_env()
 
             request.ret(READY)
 
@@ -297,8 +307,9 @@ class RPCHandler(RPCServer):
             'apt-get', 'install', '--no-act', '-qq',
             '-o', 'APT::Architecture=all',
             '-o', 'APT::Architecture=armhf',
-            '-o', 'Dir=' + self.rootfs,
-            '-o', 'Dir::State::status=' + self.rootfs + '/var/lib/dpkg/status'
+            '-o', 'Dir=' + self.resolver_env,
+            '-o', 'Dir::State::status=' + self.resolver_env +
+                  '/var/lib/dpkg/status'
         ] + packages_list
 
         apt_proc = subprocess.Popen(command_line,
