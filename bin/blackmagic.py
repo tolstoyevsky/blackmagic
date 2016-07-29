@@ -97,7 +97,7 @@ class RPCHandler(RPCServer):
         RPCServer.__init__(self, application, request, **kwargs)
 
         self.build_id = None
-        self.resolver_env = None
+        self.resolver_env = ''
 
         self.inst_pattern = re.compile('Inst ([-\.\w]+)')
 
