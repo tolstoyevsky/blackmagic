@@ -142,6 +142,9 @@ class RPCHandler(RPCServer):
 
         self.init_lock = True
 
+        if self.resolver_env:
+            self._remove_resolver_env()
+
         self.build_id = str(uuid.uuid4())
         self.resolver_env = os.path.join(options.workspace, self.build_id)
 
