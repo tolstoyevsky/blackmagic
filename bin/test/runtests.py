@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import jwt
 import redis
 from tornado import gen
 from tornado.concurrent import Future
@@ -29,11 +30,16 @@ import configurations.management
 
 from bin.blackmagic import RPCHandler
 
-# jwt.encode({'user_id': 1, 'ip': '127.0.0.1'}, 'secret', algorithm='HS256')
-ENCODED_TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.' \
-                'eyJpcCI6IjEyNy4wLjAuMSIsInVzZXJfaWQiOjF9.' \
-                'kYIAQYDjOiZpjExvXZaAgemi4xiisvPEzvXEemmAJLY'
+TOKEN_ALGORITHM_ENCODING = 'HS256'
+
 TOKEN_KEY = 'secret'
+
+TOKEN_TTL = 15
+
+USER_ID = 1
+
+ENCODED_TOKEN = jwt.encode({'user_id': USER_ID, 'ip': '127.0.0.1'}, TOKEN_KEY,
+                           algorithm=TOKEN_ALGORITHM_ENCODING).decode('utf8')
 
 
 class MockRPCServer(RPCHandler):
@@ -75,7 +81,9 @@ class RPCServerTest(WebSocketBaseTestCase):
     def get_app(self):
         self.close_future = Future()
         redis_conn = redis.StrictRedis(host='localhost', port=6379, db=0)
-        redis_conn.set(ENCODED_TOKEN, '')
+        key = 'user:{}:token'.format(USER_ID)
+        redis_conn.setex(key, 60 * TOKEN_TTL, ENCODED_TOKEN)
+        options.token_algorithm = TOKEN_ALGORITHM_ENCODING
         options.token_key = TOKEN_KEY
         return Application([
             ('/rpc/token/([\w\.]+)', MockRPCServer,
