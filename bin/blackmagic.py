@@ -10,7 +10,7 @@ from functools import wraps
 
 import django
 import tornado.web
-import tornado.websocket
+import tornado.options
 from celery.result import AsyncResult
 from debian import deb822
 from dominion.tasks import build
