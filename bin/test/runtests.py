@@ -23,11 +23,6 @@ from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.web import Application
 from tornado.websocket import websocket_connect
 
-import configurations.management
-# In spite of the fact that the above-mentioned import is never used throughout
-# the code, the django.core.exceptions.ImproperlyConfigured exception will be
-# raised if it's removed.
-
 from bin.blackmagic import RPCHandler
 
 TOKEN_ALGORITHM_ENCODING = 'HS256'

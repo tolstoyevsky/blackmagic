@@ -8,10 +8,6 @@ import subprocess
 import uuid
 from functools import wraps
 
-import configurations.management
-# In spite of the fact that the above-mentioned import is never used throughout
-# the code, the django.core.exceptions.ImproperlyConfigured exception will be
-# raised if it's removed.
 import django
 import tornado.web
 import tornado.websocket
