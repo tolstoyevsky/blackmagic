@@ -225,10 +225,6 @@ class RPCHandler(RPCServer):
 
             self._remove_resolver_env()
 
-            firmware = Firmware(name=self.build_id,
-                                user=self._get_user())
-            firmware.save()
-
             request.ret(READY)
 
         request.ret(self.lock_message)
