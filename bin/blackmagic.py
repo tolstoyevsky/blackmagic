@@ -52,6 +52,8 @@ define('workspace',
 
 LOGGER = logging.getLogger('tornado.application')
 
+DEFAULT_ROOT_PASSWORD = 'cusdeb'
+
 READY = 10
 BUSY = 12
 PREPARE_ENV = 14
@@ -271,6 +273,11 @@ class RPCHandler(RPCServer):
             packages_list.append(document)
 
         request.ret(packages_list)
+
+    @only_if_unlocked
+    @remote
+    def get_default_root_password(self, request):
+        request.ret(DEFAULT_ROOT_PASSWORD)
 
     @only_if_unlocked
     @remote
