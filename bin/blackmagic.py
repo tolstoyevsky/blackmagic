@@ -13,6 +13,7 @@ import tornado.web
 import tornado.options
 from celery.result import AsyncResult
 from debian import deb822
+from django.conf import settings
 from dominion.tasks import build
 from pymongo import MongoClient
 from tornado import gen
@@ -32,16 +33,16 @@ define('collection_name',
        default='jessie-armhf',
        help='')
 define('db_name',
-       default='cusdeb',
+       default=settings.MONGO['DATABASE'],
        help='')
 define('keyring_package',
        default='/var/blackmagic/debian-archive-keyring_2014.3_all.deb',
        help='')
 define('mongodb_host',
-       default='localhost',
+       default=settings.MONGO['HOST'],
        help='')
 define('mongodb_port',
-       default=27017,
+       default=settings.MONGO['PORT'],
        help='')
 define('status_file',
        default='/var/blackmagic/status',

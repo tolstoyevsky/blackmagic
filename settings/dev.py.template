@@ -13,3 +13,8 @@ DATABASES = {
     }
 }
 
+MONGO = {
+    'DATABASE': '',
+    'HOST': '',
+    'PORT': '',
+}
