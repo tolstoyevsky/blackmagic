@@ -101,6 +101,8 @@ class RPCHandler(RPCServer):
         self.inst_pattern = re.compile('Inst ([-\.\w]+)')
 
         self.user = None
+
+        self.root_password = DEFAULT_ROOT_PASSWORD
         self.users = []
 
         self.build_lock = False
@@ -244,6 +246,12 @@ class RPCHandler(RPCServer):
             'shell': shell
         })
         request.ret('ok')
+
+    @only_if_unlocked
+    @remote
+    def change_root_password(self, request, password):
+        self.root_password = password
+        request.ret(READY)
 
     @only_if_unlocked
     @remote

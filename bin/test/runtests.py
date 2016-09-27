@@ -23,7 +23,7 @@ from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.web import Application
 from tornado.websocket import websocket_connect
 
-from bin.blackmagic import DEFAULT_ROOT_PASSWORD, RPCHandler
+from bin.blackmagic import DEFAULT_ROOT_PASSWORD, READY, RPCHandler
 
 TOKEN_ALGORITHM_ENCODING = 'HS256'
 
@@ -92,6 +92,19 @@ class RPCServerTest(WebSocketBaseTestCase):
             'marker': marker
         }
         return json_encode(data)
+
+    @gen_test
+    def test_changing_root_password(self):
+        ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
+        payload = self.prepare_payload('change_root_password', ['stub'], 1)
+        ws.write_message(payload)
+        response = yield ws.read_message()
+        self.assertEqual(json_decode(response), {
+            'result': READY,
+            'marker': 1,
+            'eod': 1,
+        })
+        yield self.close(ws)
 
     @gen_test
     def test_getting_default_root_password(self):
