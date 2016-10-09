@@ -217,7 +217,7 @@ class RPCHandler(RPCServer):
             self.build_lock = True
 
             result = AsyncResult(build.delay(self.user_id, self.build_id,
-                                             self.selected_packages))
+                                             self.selected_packages, self.root_password))
             while not result.ready():
                 yield gen.sleep(1)
 
