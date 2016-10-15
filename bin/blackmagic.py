@@ -112,6 +112,8 @@ class RPCHandler(RPCServer):
 
         self.selected_packages = []
 
+        self.target = {}
+
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
         self.collection = self.db[options.collection_name]
@@ -152,6 +154,11 @@ class RPCHandler(RPCServer):
 
         self.build_id = str(uuid.uuid4())
         self.resolver_env = os.path.join(options.workspace, self.build_id)
+
+        self.target = {
+            'distro': '{} {}'.format(distro, distro_suite),
+            'device': target_device
+        }
 
         LOGGER.debug('Creating hierarchy in {}'.format(self.resolver_env))
         request.ret_and_continue(PREPARE_ENV)
@@ -218,7 +225,7 @@ class RPCHandler(RPCServer):
 
             result = AsyncResult(build.delay(self.user_id, self.build_id,
                                              self.selected_packages, self.root_password,
-                                             self.users))
+                                             self.users, self.target))
             while not result.ready():
                 yield gen.sleep(1)
 
