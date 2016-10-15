@@ -301,6 +301,7 @@ class RPCHandler(RPCServer):
     def get_target_devices_list(self, request):
         target_devices_list = [
             'Raspberry Pi 2',
+            'Raspberry Pi 3',
         ]
         request.ret(target_devices_list)
 
