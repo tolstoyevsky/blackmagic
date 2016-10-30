@@ -224,7 +224,8 @@ class RPCHandler(RPCServer):
             self.build_lock = True
 
             result = AsyncResult(build.delay(self.user_id, self.build_id,
-                                             self.selected_packages, self.root_password,
+                                             self.selected_packages,
+                                             self.root_password,
                                              self.users, self.target))
             while not result.ready():
                 yield gen.sleep(1)
@@ -239,7 +240,8 @@ class RPCHandler(RPCServer):
 
     @only_if_unlocked
     @remote
-    def add_user(self, request, username, password, uid, gid, comment, homedir, shell):
+    def add_user(self, request, username, password, uid, gid, comment, homedir,
+                 shell):
         self.users.append({
             'username': username,
             'password': password,
