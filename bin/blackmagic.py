@@ -95,24 +95,23 @@ class RPCHandler(RPCServer):
     def __init__(self, application, request, **kwargs):
         RPCServer.__init__(self, application, request, **kwargs)
 
-        self.build_id = None
-        self.resolver_env = ''
-
-        self.inst_pattern = re.compile('Inst ([-\.\w]+)')
-
-        self.user = None
-
-        self.root_password = DEFAULT_ROOT_PASSWORD
-        self.users = []
-
         self.build_lock = False
         self.global_lock = True
         self.init_lock = False
         self.lock_message = 'Locked'
 
-        self.selected_packages = []
+        self.image = {
+            'id': None,
+            'resolver_env': '',
+            'root_password': DEFAULT_ROOT_PASSWORD,
+            'selected_packages': [],
+            'target': {},
+            'users': [],
+        }
 
-        self.target = {}
+        self.inst_pattern = re.compile('Inst ([-\.\w]+)')
+
+        self.user = None
 
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
@@ -128,9 +127,9 @@ class RPCHandler(RPCServer):
             return self.user
 
     def _remove_resolver_env(self):
-        if os.path.isdir(self.resolver_env):
-            LOGGER.debug('Remove {}'.format(self.resolver_env))
-            shutil.rmtree(self.resolver_env)
+        if os.path.isdir(self.image['resolver_env']):
+            LOGGER.debug('Remove {}'.format(self.image['resolver_env']))
+            shutil.rmtree(self.image['resolver_env'])
 
     @gen.coroutine
     def _say_server_locked(self):
@@ -149,18 +148,19 @@ class RPCHandler(RPCServer):
 
         self.init_lock = True
 
-        if self.resolver_env:
+        if self.image['resolver_env']:
             self._remove_resolver_env()
 
-        self.build_id = str(uuid.uuid4())
-        self.resolver_env = os.path.join(options.workspace, self.build_id)
+        self.image['id'] = str(uuid.uuid4())
+        self.image['resolver_env'] = resolver_env = \
+            os.path.join(options.workspace, self.image['id'])
 
-        self.target = {
+        self.image['target'] = {
             'distro': '{} {}'.format(distro, distro_suite),
             'device': target_device
         }
 
-        LOGGER.debug('Creating hierarchy in {}'.format(self.resolver_env))
+        LOGGER.debug('Creating hierarchy in {}'.format(resolver_env))
         request.ret_and_continue(PREPARE_ENV)
         # Such things like preparing resolver environment, marking essential
         # packages as installed and installing debian-archive-keyring package
@@ -176,23 +176,21 @@ class RPCHandler(RPCServer):
             '/var/lib/dpkg',
         ]
         for directory in hiera:
-            os.makedirs(self.resolver_env + directory)
+            os.makedirs(resolver_env + directory)
 
         request.ret_and_continue(MARK_ESSENTIAL_PACKAGES_AS_INSTALLED)
         yield gen.sleep(1)
 
         shutil.copyfile(options.status_file,
-                        self.resolver_env + '/var/lib/dpkg/status')
+                        resolver_env + '/var/lib/dpkg/status')
 
-        with open(self.resolver_env + '/etc/apt/sources.list', 'w') as f:
+        with open(resolver_env + '/etc/apt/sources.list', 'w') as f:
             f.write('deb http://ftp.ru.debian.org/debian jessie main')
 
         request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
         yield gen.sleep(1)
 
-        command_line = [
-            'dpkg', '-x', options.keyring_package, self.resolver_env
-        ]
+        command_line = ['dpkg', '-x', options.keyring_package, resolver_env]
         proc = Subprocess(command_line)
         yield proc.wait_for_exit()
 
@@ -203,8 +201,8 @@ class RPCHandler(RPCServer):
             'apt-get', 'update', '-qq',
             '-o', 'APT::Architecture=all',
             '-o', 'APT::Architecture=armhf',
-            '-o', 'Dir=' + self.resolver_env,
-            '-o', 'Dir::State::status=' + self.resolver_env +
+            '-o', 'Dir=' + resolver_env,
+            '-o', 'Dir::State::status=' + resolver_env +
                   '/var/lib/dpkg/status'
         ]
         proc = Subprocess(command_line)
@@ -223,10 +221,11 @@ class RPCHandler(RPCServer):
         if not self.build_lock:
             self.build_lock = True
 
-            result = AsyncResult(build.delay(self.user_id, self.build_id,
-                                             self.selected_packages,
-                                             self.root_password,
-                                             self.users, self.target))
+            result = AsyncResult(build.delay(self.user_id, self.image['id'],
+                                             self.image['selected_packages'],
+                                             self.image['root_password'],
+                                             self.image['users'],
+                                             self.image['target']))
             while not result.ready():
                 yield gen.sleep(1)
 
@@ -242,7 +241,7 @@ class RPCHandler(RPCServer):
     @remote
     def add_user(self, request, username, password, uid, gid, comment, homedir,
                  shell):
-        self.users.append({
+        self.image['users'].append({
             'username': username,
             'password': password,
             'uid': uid,
@@ -256,8 +255,7 @@ class RPCHandler(RPCServer):
     @only_if_unlocked
     @remote
     def change_root_password(self, request, password):
-        self.root_password = password
-        LOGGER.debug(self.root_password)
+        self.image['root_password'] = password
         request.ret(READY)
 
     @only_if_unlocked
@@ -334,14 +332,15 @@ class RPCHandler(RPCServer):
     @only_if_unlocked
     @remote
     def resolve(self, request, packages_list):
-        self.selected_packages = packages_list
+        self.image['selected_packages'] = packages_list
+        resolver_env = self.image['resolver_env']
 
         command_line = [
             'apt-get', 'install', '--no-act', '-qq',
             '-o', 'APT::Architecture=all',
             '-o', 'APT::Architecture=armhf',
-            '-o', 'Dir=' + self.resolver_env,
-            '-o', 'Dir::State::status=' + self.resolver_env +
+            '-o', 'Dir=' + resolver_env,
+            '-o', 'Dir::State::status=' + resolver_env +
                   '/var/lib/dpkg/status'
         ] + packages_list
 
