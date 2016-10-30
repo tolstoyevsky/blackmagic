@@ -251,7 +251,7 @@ class RPCHandler(RPCServer):
             'homedir': homedir,
             'shell': shell
         })
-        request.ret('ok')
+        request.ret(READY)
 
     @only_if_unlocked
     @remote
