@@ -151,9 +151,9 @@ class RPCHandler(RPCServer):
         if self.image['resolver_env']:
             self._remove_resolver_env()
 
-        self.image['id'] = str(uuid.uuid4())
+        self.image['id'] = build_id = str(uuid.uuid4())
         self.image['resolver_env'] = resolver_env = \
-            os.path.join(options.workspace, self.image['id'])
+            os.path.join(options.workspace, build_id)
 
         self.image['target'] = {
             'distro': '{} {}'.format(distro, distro_suite),
@@ -212,6 +212,8 @@ class RPCHandler(RPCServer):
 
         self.init_lock = False
         self.global_lock = False
+
+        request.ret_and_continue(build_id)
 
         request.ret(READY)
 
