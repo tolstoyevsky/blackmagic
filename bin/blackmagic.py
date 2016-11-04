@@ -56,6 +56,7 @@ DEFAULT_ROOT_PASSWORD = 'cusdeb'
 
 READY = 10
 BUSY = 12
+LOCKED = 13
 PREPARE_ENV = 14
 MARK_ESSENTIAL_PACKAGES_AS_INSTALLED = 15
 INSTALL_KEYRING_PACKAGE = 16
@@ -98,7 +99,6 @@ class RPCHandler(RPCServer):
         self.build_lock = False
         self.global_lock = True
         self.init_lock = False
-        self.lock_message = 'Locked'
 
         self.image = {
             'id': None,
@@ -133,7 +133,7 @@ class RPCHandler(RPCServer):
 
     @gen.coroutine
     def _say_server_locked(self):
-        return self.lock_message
+        return LOCKED
 
     def destroy(self):
         self._remove_resolver_env()
@@ -141,7 +141,7 @@ class RPCHandler(RPCServer):
     @remote
     def init(self, request, name, target_device, distro, distro_suite):
         if self.init_lock:
-            request.ret(self.lock_message)
+            request.ret(LOCKED)
 
         if self.build_lock:
             request.ret(BUSY)
@@ -237,7 +237,7 @@ class RPCHandler(RPCServer):
 
             request.ret(READY)
 
-        request.ret(self.lock_message)
+        request.ret(LOCKED)
 
     @only_if_unlocked
     @remote
