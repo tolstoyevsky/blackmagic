@@ -55,6 +55,7 @@ LOGGER = logging.getLogger('tornado.application')
 DEFAULT_ROOT_PASSWORD = 'cusdeb'
 
 READY = 10
+NOT_INITIALIZED = 11
 BUSY = 12
 LOCKED = 13
 PREPARE_ENV = 14
@@ -63,20 +64,20 @@ INSTALL_KEYRING_PACKAGE = 16
 UPDATE_INDICES = 17
 
 
-def only_if_unlocked(func):
-    """Executes a remote procedure only if the RPC server is unlocked. Every
-    single remote procedure has to be decorated with only_if_unlocked. The
+def only_if_initialized(func):
+    """Executes a remote procedure only if the RPC server is initialized. Every
+    single remote procedure has to be decorated with only_if_initialized. The
     exceptions are:
     * init
     * get_built_images
     * get_target_devices_list"""
 
     @wraps(func)
-    def wrapper(self, *args, **kwargs):
+    def wrapper(self, request, *args, **kwargs):
         if not self.global_lock:
-            return func(self, *args, **kwargs)
+            return func(self, request, *args, **kwargs)
         else:
-            return self._say_server_locked()
+            request.ret(NOT_INITIALIZED)
 
     return wrapper
 
@@ -130,10 +131,6 @@ class RPCHandler(RPCServer):
         if os.path.isdir(self.image['resolver_env']):
             LOGGER.debug('Remove {}'.format(self.image['resolver_env']))
             shutil.rmtree(self.image['resolver_env'])
-
-    @gen.coroutine
-    def _say_server_locked(self):
-        return LOCKED
 
     def destroy(self):
         self._remove_resolver_env()
@@ -217,7 +214,7 @@ class RPCHandler(RPCServer):
 
         request.ret(READY)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def build(self, request):
         if not self.build_lock:
@@ -239,7 +236,7 @@ class RPCHandler(RPCServer):
 
         request.ret(LOCKED)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def add_user(self, request, username, password, uid, gid, comment, homedir,
                  shell):
@@ -254,13 +251,13 @@ class RPCHandler(RPCServer):
         })
         request.ret(READY)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def change_root_password(self, request, password):
         self.image['root_password'] = password
         request.ret(READY)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def get_base_packages_list(self, request):
         request.ret(self.base_packages_list)
@@ -271,7 +268,7 @@ class RPCHandler(RPCServer):
         firmwares = Firmware.objects.filter(user=user)
         request.ret([firmware.name for firmware in firmwares])
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def get_packages_list(self, request, page_number, per_page):
         if page_number > 0:
@@ -289,12 +286,12 @@ class RPCHandler(RPCServer):
 
         request.ret(packages_list)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def get_default_root_password(self, request):
         request.ret(DEFAULT_ROOT_PASSWORD)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def get_shells_list(self, request):
         request.ret(['/bin/sh', '/bin/dash', '/bin/bash', '/bin/rbash'])
@@ -307,17 +304,17 @@ class RPCHandler(RPCServer):
         ]
         request.ret(target_devices_list)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def get_packages_number(self, request):
         request.ret(self.packages_number)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def get_users_list(self, request):
         request.ret(self.users_list)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def search(self, request, query):
         packages_list = []
@@ -331,7 +328,7 @@ class RPCHandler(RPCServer):
 
         request.ret(packages_list)
 
-    @only_if_unlocked
+    @only_if_initialized
     @remote
     def resolve(self, request, packages_list):
         self.image['selected_packages'] = packages_list

@@ -24,7 +24,8 @@ from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.web import Application
 from tornado.websocket import websocket_connect
 
-from bin.blackmagic import DEFAULT_ROOT_PASSWORD, READY, RPCHandler
+from bin.blackmagic import \
+    DEFAULT_ROOT_PASSWORD, NOT_INITIALIZED, READY, RPCHandler
 
 TOKEN_ALGORITHM_ENCODING = 'HS256'
 
@@ -38,10 +39,9 @@ ENCODED_TOKEN = jwt.encode({'user_id': USER_ID, 'ip': '127.0.0.1'}, TOKEN_KEY,
                            algorithm=TOKEN_ALGORITHM_ENCODING).decode('utf8')
 
 
-class MockRPCServer(RPCHandler):
+class LockedRPCServer(RPCHandler):
     def __init__(self, application, request, **kwargs):
         RPCHandler.__init__(self, application, request, **kwargs)
-        self.global_lock = False
 
     def initialize(self, close_future, compression_options=None):
         self.close_future = close_future
@@ -52,6 +52,12 @@ class MockRPCServer(RPCHandler):
 
     def on_close(self):
         self.close_future.set_result((self.close_code, self.close_reason))
+
+
+class UnlockedRPCServer(LockedRPCServer):
+    def __init__(self, application, request, **kwargs):
+        LockedRPCServer.__init__(self, application, request, **kwargs)
+        self.global_lock = False
 
 
 class WebSocketBaseTestCase(AsyncHTTPTestCase):
@@ -82,7 +88,9 @@ class RPCServerTest(WebSocketBaseTestCase):
         options.token_algorithm = TOKEN_ALGORITHM_ENCODING
         options.token_key = TOKEN_KEY
         return Application([
-            ('/rpc/token/' + TOKEN_PATTEN, MockRPCServer,
+            ('/locked_rpc/token/' + TOKEN_PATTEN, LockedRPCServer,
+             dict(close_future=self.close_future)),
+            ('/unlocked_rpc/token/' + TOKEN_PATTEN, UnlockedRPCServer,
              dict(close_future=self.close_future)),
         ])
 
@@ -95,8 +103,21 @@ class RPCServerTest(WebSocketBaseTestCase):
         return json_encode(data)
 
     @gen_test
+    def test_locked_behaviour(self):
+        ws = yield self.ws_connect('/locked_rpc/token/{}'.format(ENCODED_TOKEN))
+        payload = self.prepare_payload('change_root_password', ['stub'], 1)
+        ws.write_message(payload)
+        response = yield ws.read_message()
+        self.assertEqual(json_decode(response), {
+            'result': NOT_INITIALIZED,
+            'marker': 1,
+            'eod': 1,
+        })
+        yield self.close(ws)
+
+    @gen_test
     def test_changing_root_password(self):
-        ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
         payload = self.prepare_payload('change_root_password', ['stub'], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
@@ -109,7 +130,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_getting_default_root_password(self):
-        ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
         payload = self.prepare_payload('get_default_root_password', [], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
@@ -122,7 +143,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_getting_packages_number(self):
-        ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
         payload = self.prepare_payload('get_packages_number', [], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
@@ -135,7 +156,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_getting_packages_list(self):
-        ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
         page_number = 0
         per_page = 5
         payload = self.prepare_payload('get_packages_list', [page_number,
@@ -148,7 +169,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_searching(self):
-        ws = yield self.ws_connect('/rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
         payload = self.prepare_payload('search', ['nginx'], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
