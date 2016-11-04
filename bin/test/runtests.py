@@ -14,6 +14,7 @@
 
 import jwt
 import redis
+from shirow.server import TOKEN_PATTEN
 from tornado import gen
 from tornado.concurrent import Future
 from tornado.escape import json_decode, json_encode
@@ -81,7 +82,7 @@ class RPCServerTest(WebSocketBaseTestCase):
         options.token_algorithm = TOKEN_ALGORITHM_ENCODING
         options.token_key = TOKEN_KEY
         return Application([
-            ('/rpc/token/([\w\.]+)', MockRPCServer,
+            ('/rpc/token/' + TOKEN_PATTEN, MockRPCServer,
              dict(close_future=self.close_future)),
         ])
 
