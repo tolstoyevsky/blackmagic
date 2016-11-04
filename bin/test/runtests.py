@@ -104,7 +104,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_locked_behaviour(self):
-        ws = yield self.ws_connect('/locked_rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/locked_rpc/token/' + ENCODED_TOKEN)
         payload = self.prepare_payload('change_root_password', ['stub'], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
@@ -117,7 +117,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_changing_root_password(self):
-        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/' + ENCODED_TOKEN)
         payload = self.prepare_payload('change_root_password', ['stub'], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
@@ -130,7 +130,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_getting_default_root_password(self):
-        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/' + ENCODED_TOKEN)
         payload = self.prepare_payload('get_default_root_password', [], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
@@ -143,7 +143,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_getting_packages_number(self):
-        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/' + ENCODED_TOKEN)
         payload = self.prepare_payload('get_packages_number', [], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
@@ -156,7 +156,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_getting_packages_list(self):
-        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/' + ENCODED_TOKEN)
         page_number = 0
         per_page = 5
         payload = self.prepare_payload('get_packages_list', [page_number,
@@ -169,7 +169,7 @@ class RPCServerTest(WebSocketBaseTestCase):
 
     @gen_test
     def test_searching(self):
-        ws = yield self.ws_connect('/unlocked_rpc/token/{}'.format(ENCODED_TOKEN))
+        ws = yield self.ws_connect('/unlocked_rpc/token/' + ENCODED_TOKEN)
         payload = self.prepare_payload('search', ['nginx'], 1)
         ws.write_message(payload)
         response = yield ws.read_message()
