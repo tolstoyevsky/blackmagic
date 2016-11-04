@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
+import asyncio
 import logging
 import os
 import os.path
 import re
 import shutil
-import subprocess
 import uuid
 from functools import wraps
 
@@ -90,6 +90,18 @@ class Application(tornado.web.Application):
         tornado.web.Application.__init__(self, handlers)
 
 
+class SubPorcProtocol(asyncio.SubprocessProtocol):
+    def __init__(self, exit_future):
+        self.exit_future = exit_future
+        self.output = bytearray()
+
+    def pipe_data_received(self, fd, data):
+        self.output.extend(data)
+
+    def process_exited(self):
+        self.exit_future.set_result(True)
+
+
 class RPCHandler(RPCServer):
     base_packages_list = []
     users_list = []
@@ -112,7 +124,7 @@ class RPCHandler(RPCServer):
 
         self.inst_pattern = re.compile('Inst ([-\.\w]+)')
 
-        self.user = None
+        self.user = None  # the one who builds an image
 
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
@@ -331,6 +343,8 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def resolve(self, request, packages_list):
+        loop = self.io_loop.asyncio_loop
+
         self.image['selected_packages'] = packages_list
         resolver_env = self.image['resolver_env']
 
@@ -343,10 +357,22 @@ class RPCHandler(RPCServer):
                   '/var/lib/dpkg/status'
         ] + packages_list
 
-        apt_proc = subprocess.Popen(command_line,
-                                    stdout=subprocess.PIPE,
-                                    stdin=subprocess.PIPE)
-        stdout_data, stderr_data = apt_proc.communicate()
+        exit_future = asyncio.Future(loop=loop)
+
+        # Create the subprocess controlled by the protocol SubProcProtocol,
+        # redirect the standard output into a pipe
+        proc = loop.subprocess_exec(lambda: SubPorcProtocol(exit_future),
+                                    *command_line,
+                                    stdin=None, stderr=None)
+        transport, protocol = yield from proc
+
+        # Wait for the subprocess exit using the process_exited() method
+        # of the protocol
+        yield from exit_future
+
+        transport.close()  # close the stdout pipe
+
+        data = bytes(protocol.output)
 
         # The output of the above command line will look like the
         # following set of lines:
@@ -362,7 +388,7 @@ class RPCHandler(RPCServer):
         # Conf libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
         # Conf libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
         # ...
-        packages_to_be_installed = self.inst_pattern.findall(str(stdout_data))
+        packages_to_be_installed = self.inst_pattern.findall(str(data))
         dependencies = set(packages_to_be_installed) - set(packages_list)
 
         # Python sets are not JSON serializable
