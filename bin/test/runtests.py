@@ -192,5 +192,33 @@ class RPCServerTest(WebSocketBaseTestCase):
         self.assertEqual(expected, set(packages_names))
         yield self.close(ws)
 
+    @gen_test
+    def test_sync_image_configuration_parameters_empty_json(self):
+        ws = yield self.ws_connect('/unlocked_rpc/token/' + ENCODED_TOKEN)
+        payload = self.prepare_payload('sync_configuration', [{}], 1)
+        ws.write_message(payload)
+        response = yield ws.read_message()
+        self.assertEqual(json_decode(response), {
+            'result': READY,
+            'marker': 1,
+            'eod': 1,
+        })
+        yield self.close(ws)
+
+    @gen_test
+    def test_sync_image_configuration_parameters_non_empty_json(self):
+        ws = yield self.ws_connect('/unlocked_rpc/token/' + ENCODED_TOKEN)
+        payload = self.prepare_payload('sync_configuration', [
+            {'HOSTNAME': 'cusdebtesthostname'}
+        ], 1)
+        ws.write_message(payload)
+        response = yield ws.read_message()
+        self.assertEqual(json_decode(response), {
+            'result': READY,
+            'marker': 1,
+            'eod': 1,
+        })
+        yield self.close(ws)
+
 if __name__ == '__main__':
     unittest.main()

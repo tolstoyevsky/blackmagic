@@ -121,6 +121,7 @@ class RPCHandler(RPCServer):
             'selected_packages': [],
             'target': {},
             'users': [],
+            'configuration': [],
         }
 
         self.inst_pattern = re.compile('Inst ([-\.\w]+)')
@@ -237,7 +238,8 @@ class RPCHandler(RPCServer):
                                              self.image['selected_packages'],
                                              self.image['root_password'],
                                              self.image['users'],
-                                             self.image['target']))
+                                             self.image['target'],
+                                             self.image['configuration']))
             while not result.ready():
                 yield gen.sleep(1)
 
@@ -271,6 +273,12 @@ class RPCHandler(RPCServer):
     @remote
     def change_root_password(self, request, password):
         self.image['root_password'] = password
+        request.ret(READY)
+
+    @only_if_initialized
+    @remote
+    def sync_configuration(self, request, image_configuration_params):
+        self.image['configuration'] = image_configuration_params
         request.ret(READY)
 
     @only_if_initialized
