@@ -234,12 +234,7 @@ class RPCHandler(RPCServer):
         if not self.build_lock:
             self.build_lock = True
 
-            result = AsyncResult(build.delay(self.user_id, self.image['id'],
-                                             self.image['selected_packages'],
-                                             self.image['root_password'],
-                                             self.image['users'],
-                                             self.image['target'],
-                                             self.image['configuration']))
+            result = AsyncResult(build.delay(self.user_id, self.image))
             while not result.ready():
                 yield gen.sleep(1)
 
