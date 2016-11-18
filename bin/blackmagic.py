@@ -62,6 +62,7 @@ PREPARE_ENV = 14
 MARK_ESSENTIAL_PACKAGES_AS_INSTALLED = 15
 INSTALL_KEYRING_PACKAGE = 16
 UPDATE_INDICES = 17
+BUILD_FAILED = 18
 
 
 def only_if_initialized(func):
@@ -244,7 +245,10 @@ class RPCHandler(RPCServer):
 
             self._remove_resolver_env()
 
-            request.ret(READY)
+            if result.get() == 0:
+                request.ret(READY)
+            else:
+                request.ret(BUILD_FAILED)
 
         request.ret(LOCKED)
 
