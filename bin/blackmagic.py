@@ -150,7 +150,7 @@ class RPCHandler(RPCServer):
         self._remove_resolver_env()
 
     @remote
-    def init(self, request, name, target_device, distro, distro_suite):
+    def init(self, request, name, target_device, distro):
         if self.init_lock:
             request.ret(LOCKED)
 
@@ -167,7 +167,7 @@ class RPCHandler(RPCServer):
             os.path.join(options.workspace, build_id)
 
         self.image['target'] = {
-            'distro': '{} {}'.format(distro, distro_suite),
+            'distro': distro,
             'device': target_device
         }
 
