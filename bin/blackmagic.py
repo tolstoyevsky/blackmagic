@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import asyncio
 import logging
 import os
 import os.path
@@ -16,6 +15,7 @@ from debian import deb822
 from django.conf import settings
 from dominion.tasks import build
 from pymongo import MongoClient
+from shirow import util
 from tornado import gen
 from tornado.options import define, options
 from tornado.process import Subprocess
@@ -89,18 +89,6 @@ class Application(tornado.web.Application):
             (r'/rpc/token/' + TOKEN_PATTEN, RPCHandler),
         ]
         tornado.web.Application.__init__(self, handlers)
-
-
-class SubPorcProtocol(asyncio.SubprocessProtocol):
-    def __init__(self, exit_future):
-        self.exit_future = exit_future
-        self.output = bytearray()
-
-    def pipe_data_received(self, fd, data):
-        self.output.extend(data)
-
-    def process_exited(self):
-        self.exit_future.set_result(True)
 
 
 class RPCHandler(RPCServer):
@@ -202,8 +190,8 @@ class RPCHandler(RPCServer):
         yield gen.sleep(1)
 
         command_line = ['dpkg', '-x', options.keyring_package, resolver_env]
-        proc = Subprocess(command_line)
-        yield proc.wait_for_exit()
+        output = yield util.run(command_line)
+        LOGGER.debug('dpkg: {}'.format(output))
 
         LOGGER.debug('Executing apt-get update')
         request.ret_and_continue(UPDATE_INDICES)
@@ -350,8 +338,6 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def resolve(self, request, packages_list):
-        loop = self.io_loop.asyncio_loop
-
         self.image['selected_packages'] = packages_list
         resolver_env = self.image['resolver_env']
 
@@ -364,22 +350,7 @@ class RPCHandler(RPCServer):
                   '/var/lib/dpkg/status'
         ] + packages_list
 
-        exit_future = asyncio.Future(loop=loop)
-
-        # Create the subprocess controlled by the protocol SubProcProtocol,
-        # redirect the standard output into a pipe
-        proc = loop.subprocess_exec(lambda: SubPorcProtocol(exit_future),
-                                    *command_line,
-                                    stdin=None, stderr=None)
-        transport, protocol = yield from proc
-
-        # Wait for the subprocess exit using the process_exited() method
-        # of the protocol
-        yield from exit_future
-
-        transport.close()  # close the stdout pipe
-
-        data = bytes(protocol.output)
+        data = yield util.run(command_line)
 
         # The output of the above command line will look like the
         # following set of lines:
