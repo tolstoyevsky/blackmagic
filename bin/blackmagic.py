@@ -121,6 +121,7 @@ class RPCHandler(RPCServer):
         self.collection = self.db[options.collection_name]
 
         self.packages_number = self.collection.find().count()
+        self.enable_email_notifications = False
 
     def _get_user(self):
         if not self.user:
@@ -262,6 +263,12 @@ class RPCHandler(RPCServer):
     @remote
     def sync_configuration(self, request, image_configuration_params):
         self.image['configuration'] = image_configuration_params
+        request.ret(READY)
+
+    @only_if_initialized
+    @remote
+    def enable_email_notifications(self, request, enable_email_notifications):
+        self.enable_email_notifications = enable_email_notifications
         request.ret(READY)
 
     @only_if_initialized
