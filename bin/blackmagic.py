@@ -24,6 +24,7 @@ from firmwares.models import Firmware
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTEN, remote
 from users.models import User
+from users.models import UserProfile
 
 define('base_system',
        default='/var/blackmagic/jessie-armhf',
@@ -63,6 +64,8 @@ MARK_ESSENTIAL_PACKAGES_AS_INSTALLED = 15
 INSTALL_KEYRING_PACKAGE = 16
 UPDATE_INDICES = 17
 BUILD_FAILED = 18
+EMAIL_NOTIFICATIONS = 19
+EMAIL_NOTIFICATIONS_FAILED = 20
 
 
 def only_if_initialized(func):
@@ -121,7 +124,6 @@ class RPCHandler(RPCServer):
         self.collection = self.db[options.collection_name]
 
         self.packages_number = self.collection.find().count()
-        self.email_notifications = False
 
     def _get_user(self):
         if not self.user:
@@ -267,15 +269,42 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
+    def get_email_notifications(self, request):
+        profile = UserProfile.objects.get(id=self.user_id)
+        if profile:
+            request.ret(profile.email_notifications)
+        else:
+            request.ret(EMAIL_NOTIFICATIONS_FAILED)
+
+    @only_if_initialized
+    @remote
     def enable_email_notifications(self, request):
-        self.email_notifications = True
-        request.ret(READY)
+        try:
+            profile = UserProfile.objects.get(id=self.user_id)
+        except UserProfile.DoesNotExist:
+            profile = None
+
+        if profile:
+            profile.email_notifications = True
+            profile.save()
+            request.ret(EMAIL_NOTIFICATIONS)
+        else:
+            request.ret(EMAIL_NOTIFICATIONS_FAILED)
 
     @only_if_initialized
     @remote
     def disable_email_notifications(self, request):
-        self.email_notifications = False
-        request.ret(READY)
+        try:
+            profile = UserProfile.objects.get(id=self.user_id)
+        except UserProfile.DoesNotExist:
+            profile = None
+
+        if profile:
+            profile.email_notifications = True
+            profile.save()
+            request.ret(EMAIL_NOTIFICATIONS)
+        else:
+            request.ret(EMAIL_NOTIFICATIONS_FAILED)
 
     @only_if_initialized
     @remote

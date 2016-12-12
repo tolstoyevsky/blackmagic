@@ -18,3 +18,10 @@ MONGO = {
     'HOST': '',
     'PORT': '',
 }
+
+EMAIL_HOST = 'smtp.yandex.ru'
+EMAIL_PORT = 465
+EMAIL_HOST_USER = 'noreply@cusdeb.com'
+DEFAULT_FROM_EMAIL = 'noreply@cusdeb.com'
+EMAIL_HOST_PASSWORD = ''
+EMAIL_USE_SSL = True
