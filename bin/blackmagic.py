@@ -24,7 +24,6 @@ from firmwares.models import Firmware
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTEN, remote
 from users.models import User
-from users.models import UserProfile
 
 define('base_system',
        default='/var/blackmagic/jessie-armhf',
@@ -270,23 +269,19 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def get_email_notifications(self, request):
-        profile = UserProfile.objects.get(id=self.user_id)
-        if profile:
-            request.ret(profile.email_notifications)
+        user = self._get_user()
+        if user:
+            request.ret(user.userprofile.email_notifications)
         else:
             request.ret(EMAIL_NOTIFICATIONS_FAILED)
 
     @only_if_initialized
     @remote
     def enable_email_notifications(self, request):
-        try:
-            profile = UserProfile.objects.get(id=self.user_id)
-        except UserProfile.DoesNotExist:
-            profile = None
-
-        if profile:
-            profile.email_notifications = True
-            profile.save()
+        user = self._get_user()
+        if user:
+            user.userprofile.email_notifications = True
+            user.save()
             request.ret(EMAIL_NOTIFICATIONS)
         else:
             request.ret(EMAIL_NOTIFICATIONS_FAILED)
@@ -294,14 +289,10 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def disable_email_notifications(self, request):
-        try:
-            profile = UserProfile.objects.get(id=self.user_id)
-        except UserProfile.DoesNotExist:
-            profile = None
-
-        if profile:
-            profile.email_notifications = True
-            profile.save()
+        user = self._get_user()
+        if user:
+            user.userprofile.email_notifications = False
+            user.save()
             request.ret(EMAIL_NOTIFICATIONS)
         else:
             request.ret(EMAIL_NOTIFICATIONS_FAILED)
