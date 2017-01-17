@@ -22,7 +22,7 @@ from tornado.process import Subprocess
 
 from firmwares.models import Firmware
 from shirow.ioloop import IOLoop
-from shirow.server import RPCServer, TOKEN_PATTEN, remote
+from shirow.server import RPCServer, TOKEN_PATTERN, remote
 from users.models import User
 
 define('base_system',
@@ -88,7 +88,7 @@ def only_if_initialized(func):
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
-            (r'/rpc/token/' + TOKEN_PATTEN, RPCHandler),
+            (r'/rpc/token/' + TOKEN_PATTERN, RPCHandler),
         ]
         tornado.web.Application.__init__(self, handlers)
 
