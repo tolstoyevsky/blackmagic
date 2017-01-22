@@ -65,6 +65,8 @@ UPDATE_INDICES = 17
 BUILD_FAILED = 18
 EMAIL_NOTIFICATIONS = 19
 EMAIL_NOTIFICATIONS_FAILED = 20
+FIRMWARE_WAS_REMOVED = 21
+NOT_FOUND = 22
 
 
 def only_if_initialized(func):
@@ -307,6 +309,16 @@ class RPCHandler(RPCServer):
         user = User.objects.get(id=self.user_id)
         firmwares = Firmware.objects.filter(user=user)
         request.ret([firmware.name for firmware in firmwares])
+
+    @remote
+    def delete_firmware(self, request, name):
+        user = User.objects.get(id=self.user_id)
+        firmwares = Firmware.objects.filter(user=user, name=name)
+        if firmwares:
+            firmwares.delete()
+            request.ret(FIRMWARE_WAS_REMOVED)
+        else:
+            request.ret(NOT_FOUND)
 
     @only_if_initialized
     @remote
