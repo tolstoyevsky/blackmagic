@@ -155,6 +155,7 @@ class RPCHandler(RPCServer):
             self._remove_resolver_env()
 
         self.image['id'] = build_id = str(uuid.uuid4())
+        self.image['_id'] = build_id
         self.image['resolver_env'] = resolver_env = \
             os.path.join(options.workspace, build_id)
 
@@ -211,6 +212,13 @@ class RPCHandler(RPCServer):
         proc = Subprocess(command_line)
         yield proc.wait_for_exit()
 
+        user = self._get_user()
+        firmware = Firmware(name=build_id, user=user,
+                            status=Firmware.INITIALIZED)
+        firmware.save()
+
+        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
+
         LOGGER.debug('Finishing initialization')
 
         self.init_lock = False
@@ -254,18 +262,21 @@ class RPCHandler(RPCServer):
             'homedir': homedir,
             'shell': shell
         })
+        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         request.ret(READY)
 
     @only_if_initialized
     @remote
     def change_root_password(self, request, password):
         self.image['root_password'] = password
+        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         request.ret(READY)
 
     @only_if_initialized
     @remote
     def sync_configuration(self, request, image_configuration_params):
         self.image['configuration'] = image_configuration_params
+        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         request.ret(READY)
 
     @only_if_initialized
@@ -307,7 +318,8 @@ class RPCHandler(RPCServer):
     @remote
     def get_built_images(self, request):
         user = User.objects.get(id=self.user_id)
-        firmwares = Firmware.objects.filter(user=user)
+        firmwares = Firmware.objects.filter(user=user) \
+                                    .filter(status=Firmware.DONE)
         request.ret([firmware.name for firmware in firmwares])
 
     @remote
@@ -384,6 +396,7 @@ class RPCHandler(RPCServer):
     @remote
     def resolve(self, request, packages_list):
         self.image['selected_packages'] = packages_list
+        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         resolver_env = self.image['resolver_env']
 
         command_line = [
