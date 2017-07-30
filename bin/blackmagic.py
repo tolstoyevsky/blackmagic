@@ -6,6 +6,7 @@ import re
 import shutil
 import uuid
 from functools import wraps
+from pathlib import Path
 
 import django
 import tornado.web
@@ -327,7 +328,14 @@ class RPCHandler(RPCServer):
         user = User.objects.get(id=self.user_id)
         firmwares = Firmware.objects.filter(user=user, name=name)
         if firmwares:
+            filename = os.path.join(options.workspace, name + '.tar.gz')
             firmwares.delete()
+            if Path(filename).is_file():
+                os.remove(filename)
+            else:
+                LOGGER.error('Failed to remove {}: '
+                             'file does not exist'.format(filename))
+
             request.ret(FIRMWARE_WAS_REMOVED)
         else:
             request.ret(NOT_FOUND)
