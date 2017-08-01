@@ -328,7 +328,7 @@ class RPCHandler(RPCServer):
         user = User.objects.get(id=self.user_id)
         firmwares = Firmware.objects.filter(user=user, name=name)
         if firmwares:
-            filename = os.path.join(options.workspace, name + '.tar.gz')
+            filename = os.path.join('/var/dominion/workspace/', name + '.tar.gz')
             firmwares.delete()
             if Path(filename).is_file():
                 os.remove(filename)
