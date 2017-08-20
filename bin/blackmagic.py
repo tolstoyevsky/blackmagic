@@ -26,13 +26,10 @@ from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
 from users.models import User
 
-define('base_system',
-       default='/var/blackmagic/jessie-armhf',
-       help='The path to a chroot environment which contains '
-            'the Debian base system')
-define('collection_name',
-       default='jessie-armhf',
-       help='')
+define('base_systems_path',
+       default='/var/blackmagic',
+       help='The path to the directory which contains chroot environments '
+            'which, in turn, contain the Debian base system')
 define('db_name',
        default=settings.MONGO['DATABASE'],
        help='')
@@ -45,15 +42,17 @@ define('mongodb_host',
 define('mongodb_port',
        default=settings.MONGO['PORT'],
        help='')
-define('status_file',
-       default='/var/blackmagic/status',
-       help='')
 define('workspace',
        default='/var/blackmagic/workspace')
 
 LOGGER = logging.getLogger('tornado.application')
 
 DEFAULT_ROOT_PASSWORD = 'cusdeb'
+
+VALID_SUITES = {
+    'Debian Jessie': 'jessie',
+    'Debian Stretch': 'stretch',
+}
 
 READY = 10
 NOT_INITIALIZED = 11
@@ -68,6 +67,20 @@ EMAIL_NOTIFICATIONS = 19
 EMAIL_NOTIFICATIONS_FAILED = 20
 FIRMWARE_WAS_REMOVED = 21
 NOT_FOUND = 22
+
+
+class SuiteDoesNotSupport(Exception):
+    """Exception raised by the get_suite_name function if the specified suite
+    is not valid.
+    """
+    pass
+
+
+def get_suite_name(distro):
+    if distro in VALID_SUITES.keys():
+        return VALID_SUITES[distro]
+    else:
+        raise SuiteDoesNotSupport
 
 
 def only_if_initialized(func):
@@ -97,8 +110,11 @@ class Application(tornado.web.Application):
 
 
 class RPCHandler(RPCServer):
-    base_packages_list = []
-    users_list = []
+    base_packages_list = {}
+    users_list = {}
+    for v in VALID_SUITES.values():
+        base_packages_list[v] = []
+        users_list[v] = []
 
     def __init__(self, application, request, **kwargs):
         RPCServer.__init__(self, application, request, **kwargs)
@@ -106,6 +122,9 @@ class RPCHandler(RPCServer):
         self.build_lock = False
         self.global_lock = True
         self.init_lock = False
+
+        self._collection_name = ''
+        self._suite = ''
 
         self.image = {
             'id': None,
@@ -121,18 +140,19 @@ class RPCHandler(RPCServer):
 
         self.user = None  # the one who builds an image
 
-        client = MongoClient(options.mongodb_host, options.mongodb_port)
-        self.db = client[options.db_name]
-        self.collection = self.db[options.collection_name]
-
-        self.packages_number = self.collection.find().count()
-
     def _get_user(self):
         if not self.user:
             self.user = User.objects.get(id=self.user_id)
             return self.user
         else:
             return self.user
+
+    def _init_mongodb(self, collection_name):
+        client = MongoClient(options.mongodb_host, options.mongodb_port)
+        self.db = client[options.db_name]
+        self.collection = self.db[collection_name]
+
+        self.packages_number = self.collection.find().count()
 
     def _remove_resolver_env(self):
         if os.path.isdir(self.image['resolver_env']):
@@ -151,6 +171,10 @@ class RPCHandler(RPCServer):
             request.ret(BUSY)
 
         self.init_lock = True
+
+        self._suite = get_suite_name(distro)
+        self._collection_name = '{}-{}'.format(self._suite, 'armhf')
+        self._init_mongodb(self._collection_name)
 
         if self.image['resolver_env']:
             self._remove_resolver_env()
@@ -186,11 +210,14 @@ class RPCHandler(RPCServer):
         request.ret_and_continue(MARK_ESSENTIAL_PACKAGES_AS_INSTALLED)
         yield gen.sleep(1)
 
-        shutil.copyfile(options.status_file,
-                        resolver_env + '/var/lib/dpkg/status')
+        base_sytem = os.path.join(options.base_systems_path,
+                                  self._suite + '-armhf')
+        status_file = os.path.join(base_sytem, 'var/lib/dpkg/status')
+        shutil.copyfile(status_file, resolver_env + '/var/lib/dpkg/status')
 
         with open(resolver_env + '/etc/apt/sources.list', 'w') as f:
-            f.write('deb http://ftp.ru.debian.org/debian jessie main')
+            f.write('deb http://ftp.ru.debian.org/debian {} main'.
+                    format(self._suite))
 
         request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
         yield gen.sleep(1)
@@ -314,7 +341,7 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def get_base_packages_list(self, request):
-        request.ret(self.base_packages_list)
+        request.ret(self.base_packages_list[self._suite])
 
     @remote
     def get_built_images(self, request):
@@ -384,14 +411,14 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def get_users_list(self, request):
-        request.ret(self.users_list)
+        request.ret(self.users_list[self._suite])
 
     @only_if_initialized
     @remote
     def search(self, request, query):
         packages_list = []
         if query:
-            matches = self.db.command('text', options.collection_name,
+            matches = self.db.command('text', self._collection_name,
                                       search=query)
             if matches['results']:
                 for document in matches['results']:
@@ -411,6 +438,7 @@ class RPCHandler(RPCServer):
             'apt-get', 'install', '--no-act', '-qq',
             '-o', 'APT::Architecture=all',
             '-o', 'APT::Architecture=armhf',
+            '-o', 'APT::Default-Release=' + self._suite,
             '-o', 'Dir=' + resolver_env,
             '-o', 'Dir::State::status=' + resolver_env +
                   '/var/lib/dpkg/status'
@@ -441,18 +469,13 @@ class RPCHandler(RPCServer):
 
 def main():
     tornado.options.parse_command_line()
-    if not os.path.isdir(options.base_system):
-        LOGGER.error('The directory specified via the base_system parameter '
-                     'does not exist')
+    if not os.path.isdir(options.base_systems_path):
+        LOGGER.error('The directory specified via the base_systems_path '
+                     'parameter does not exist')
         exit(1)
 
     if not os.path.isfile(options.keyring_package):
         LOGGER.error('The file specified via the keyring_package parameter '
-                     'does not exist')
-        exit(1)
-
-    if not os.path.isfile(options.status_file):
-        LOGGER.error('The file specified via the status_file parameter '
                      'does not exist')
         exit(1)
 
@@ -463,16 +486,20 @@ def main():
 
     django.setup()
 
-    passwd_file = os.path.join(options.base_system, 'etc/passwd')
-    status_file = os.path.join(options.base_system, 'var/lib/dpkg/status')
+    for v in VALID_SUITES.values():
+        passwd_file = os.path.join(options.base_systems_path, v + '-armhf',
+                                   'etc/passwd')
 
-    with open(passwd_file, encoding='utf-8') as f:
-        for line in f:
-            RPCHandler.users_list.append(line.split(':'))
+        with open(passwd_file, encoding='utf-8') as f:
+            for line in f:
+                RPCHandler.users_list[v].append(line.split(':'))
 
-    with open(status_file, encoding='utf-8') as f:
-        for package in deb822.Packages.iter_paragraphs(f):
-            RPCHandler.base_packages_list.append(package['package'])
+    for v in VALID_SUITES.values():
+        base_sytem = os.path.join(options.base_systems_path, v + '-armhf')
+        status_file = os.path.join(base_sytem, 'var/lib/dpkg/status')
+        with open(status_file, encoding='utf-8') as f:
+            for package in deb822.Packages.iter_paragraphs(f):
+                RPCHandler.base_packages_list[v].append(package['package'])
 
     LOGGER.info('RPC server is ready!')
 
