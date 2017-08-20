@@ -27,7 +27,7 @@ from shirow.server import RPCServer, TOKEN_PATTERN, remote
 from users.models import User
 
 define('base_systems_path',
-       default='/var/blackmagic',
+       default='/var/chroot',
        help='The path to the directory which contains chroot environments '
             'which, in turn, contain the Debian base system')
 define('db_name',
