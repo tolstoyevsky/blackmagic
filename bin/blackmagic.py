@@ -273,9 +273,14 @@ class RPCHandler(RPCServer):
 
             self._remove_resolver_env()
 
-            if result.get() == 0:
-                request.ret(READY)
-            else:
+            try:
+                if result.get() == 0:
+                    request.ret(READY)
+                else:
+                    request.ret(BUILD_FAILED)
+            except Exception:
+                message = 'an error occurred while building image'
+                self.logger.exception(message)
                 request.ret(BUILD_FAILED)
 
         request.ret(LOCKED)
