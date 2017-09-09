@@ -33,6 +33,9 @@ define('base_systems_path',
 define('db_name',
        default=settings.MONGO['DATABASE'],
        help='')
+define('dominion_workspace',
+       default='/var/dominion/workspace/',
+       help='')
 define('keyring_package',
        default='/var/blackmagic/debian-archive-keyring_2014.3_all.deb',
        help='')
@@ -355,7 +358,8 @@ class RPCHandler(RPCServer):
         user = User.objects.get(id=self.user_id)
         firmwares = Firmware.objects.filter(user=user, name=name)
         if firmwares:
-            filename = os.path.join('/var/dominion/workspace/', name + '.tar.gz')
+            filename = os.path.join(options.dominion_workspace,
+                                    name + '.tar.gz')
             firmwares.delete()
             if Path(filename).is_file():
                 os.remove(filename)
