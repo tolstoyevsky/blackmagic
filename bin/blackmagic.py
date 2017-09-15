@@ -265,6 +265,8 @@ class RPCHandler(RPCServer):
         if not self.build_lock:
             self.build_lock = True
 
+            ret_code = 0
+
             result = AsyncResult(build.delay(self.user_id, self.image))
             while not result.ready():
                 yield gen.sleep(1)
@@ -274,13 +276,15 @@ class RPCHandler(RPCServer):
             self._remove_resolver_env()
 
             try:
-                if result.get() == 0:
-                    request.ret(READY)
-                else:
-                    request.ret(BUILD_FAILED)
+                ret_code = result.get()
             except Exception:
-                message = 'an error occurred while building image'
-                self.logger.exception(message)
+                LOGGER.exception('An exception was raised while building '
+                                 'image')
+                request.ret(BUILD_FAILED)
+
+            if ret_code == 0:
+                request.ret(READY)
+            else:
                 request.ret(BUILD_FAILED)
 
         request.ret(LOCKED)
