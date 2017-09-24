@@ -277,7 +277,7 @@ class RPCHandler(RPCServer):
                 builds_number = int(builds_number)
 
             if builds_number >= options.max_builds_number:
-                request.ret(OVERLOADED)
+                request.ret_and_continue(OVERLOADED)
 
             ret_code = 0
 
