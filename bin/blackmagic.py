@@ -39,6 +39,10 @@ define('dominion_workspace',
 define('keyring_package',
        default='/var/blackmagic/debian-archive-keyring_2014.3_all.deb',
        help='')
+define('max_builds_number',
+       default=8,
+       type=int,
+       help='Maximum allowed number of builds at the same time.')
 define('mongodb_host',
        default=settings.MONGO['HOST'],
        help='')
@@ -68,6 +72,7 @@ UPDATE_INDICES = 17
 BUILD_FAILED = 18
 EMAIL_NOTIFICATIONS = 19
 EMAIL_NOTIFICATIONS_FAILED = 20
+OVERLOADED = 21
 FIRMWARE_WAS_REMOVED = 21
 NOT_FOUND = 22
 
@@ -264,6 +269,15 @@ class RPCHandler(RPCServer):
     def build(self, request):
         if not self.build_lock:
             self.build_lock = True
+
+            builds_number = self.redis_conn.get('builds_number')
+            if not builds_number:
+                builds_number = 0
+            else:
+                builds_number = int(builds_number)
+
+            if builds_number >= options.max_builds_number:
+                request.ret(OVERLOADED)
 
             ret_code = 0
 
