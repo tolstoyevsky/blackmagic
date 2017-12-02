@@ -56,9 +56,19 @@ LOGGER = logging.getLogger('tornado.application')
 
 DEFAULT_ROOT_PASSWORD = 'cusdeb'
 
-VALID_SUITES = {
-    'Debian Jessie': 'jessie',
-    'Debian Stretch': 'stretch',
+METAS = {
+    'Raspbian 9 "Stretch" (32-bit)': [
+        'raspbian-stretch-armhf',
+        'http://archive.raspbian.org/raspbian',
+    ],
+    'Ubuntu 16.04 "Xenial Xerus" (32-bit)': [
+        'ubuntu-xenial-armhf',
+        'http://ports.ubuntu.com/ubuntu-ports/',
+    ],
+    'Ubuntu 17.10 "Artful Aardvark" (64-bit)': [
+        'ubuntu-artful-arm64',
+        'http://ports.ubuntu.com/ubuntu-ports/',
+    ],
 }
 
 READY = 10
@@ -77,18 +87,25 @@ FIRMWARE_WAS_REMOVED = 21
 NOT_FOUND = 22
 
 
-class SuiteDoesNotSupport(Exception):
-    """Exception raised by the get_suite_name function if the specified suite
+class DistroDoesNotExist(Exception):
+    """Exception raised by the get_os_name function if the specified suite
     is not valid.
     """
     pass
 
 
-def get_suite_name(distro):
-    if distro in VALID_SUITES.keys():
-        return VALID_SUITES[distro]
+def get_os_name(distro):
+    if distro in METAS.keys():
+        return METAS[distro][0]
     else:
-        raise SuiteDoesNotSupport
+        raise DistroDoesNotExist
+
+
+def get_mirror_address(distro):
+    if distro in METAS.keys():
+        return METAS[distro][1]
+    else:
+        raise DistroDoesNotExist
 
 
 def only_if_initialized(func):
@@ -120,9 +137,9 @@ class Application(tornado.web.Application):
 class RPCHandler(RPCServer):
     base_packages_list = {}
     users_list = {}
-    for v in VALID_SUITES.values():
-        base_packages_list[v] = []
-        users_list[v] = []
+    for v in METAS.values():
+        base_packages_list[v[0]] = []
+        users_list[v[0]] = []
 
     def __init__(self, application, request, **kwargs):
         RPCServer.__init__(self, application, request, **kwargs)
@@ -131,7 +148,10 @@ class RPCHandler(RPCServer):
         self.global_lock = True
         self.init_lock = False
 
+        self._arch = ''
         self._collection_name = ''
+        self._mirror = ''
+        self._os = ''
         self._suite = ''
 
         self.image = {
@@ -180,8 +200,11 @@ class RPCHandler(RPCServer):
 
         self.init_lock = True
 
-        self._suite = get_suite_name(distro)
-        self._collection_name = '{}-{}'.format(self._suite, 'armhf')
+        self._os = get_os_name(distro)
+        self._arch = self._os.split('-')[2]
+        self._suite = self._os.split('-')[1]
+        self._mirror = get_mirror_address(distro)
+        self._collection_name = self._os
         self._init_mongodb(self._collection_name)
 
         if self.image['resolver_env']:
@@ -218,14 +241,13 @@ class RPCHandler(RPCServer):
         request.ret_and_continue(MARK_ESSENTIAL_PACKAGES_AS_INSTALLED)
         yield gen.sleep(1)
 
-        base_sytem = os.path.join(options.base_systems_path,
-                                  self._suite + '-armhf')
+        base_sytem = os.path.join(options.base_systems_path, self._os)
         status_file = os.path.join(base_sytem, 'var/lib/dpkg/status')
         shutil.copyfile(status_file, resolver_env + '/var/lib/dpkg/status')
 
         with open(resolver_env + '/etc/apt/sources.list', 'w') as f:
-            f.write('deb http://ftp.ru.debian.org/debian {} main'.
-                    format(self._suite))
+            f.write('deb [arch={}] {} {} main'.format(self._arch, self._mirror,
+                                                      self._suite))
 
         request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
         yield gen.sleep(1)
@@ -240,7 +262,7 @@ class RPCHandler(RPCServer):
         command_line = [
             'apt-get', 'update', '-qq',
             '-o', 'APT::Architecture=all',
-            '-o', 'APT::Architecture=armhf',
+            '-o', 'APT::Architecture=' + self._arch,
             '-o', 'Dir=' + resolver_env,
             '-o', 'Dir::State::status=' + resolver_env +
                   '/var/lib/dpkg/status'
@@ -367,7 +389,7 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def get_base_packages_list(self, request):
-        request.ret(self.base_packages_list[self._suite])
+        request.ret(self.base_packages_list[self._os])
 
     @remote
     def get_built_images(self, request):
@@ -425,8 +447,10 @@ class RPCHandler(RPCServer):
     @remote
     def get_target_devices_list(self, request):
         target_devices_list = [
-            'Raspberry Pi 2',
-            'Raspberry Pi 3',
+            'Raspberry Pi Model B and B+',
+            'Raspberry Pi 2 Model B',
+            'Raspberry Pi 3 Model B',
+            'Raspberry Pi Zero',
         ]
         request.ret(target_devices_list)
 
@@ -438,7 +462,7 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def get_users_list(self, request):
-        request.ret(self.users_list[self._suite])
+        request.ret(self.users_list[self._os])
 
     @only_if_initialized
     @remote
@@ -464,7 +488,7 @@ class RPCHandler(RPCServer):
         command_line = [
             'apt-get', 'install', '--no-act', '-qq',
             '-o', 'APT::Architecture=all',
-            '-o', 'APT::Architecture=armhf',
+            '-o', 'APT::Architecture=' + self._arch,
             '-o', 'APT::Default-Release=' + self._suite,
             '-o', 'Dir=' + resolver_env,
             '-o', 'Dir::State::status=' + resolver_env +
@@ -513,20 +537,19 @@ def main():
 
     django.setup()
 
-    for v in VALID_SUITES.values():
-        passwd_file = os.path.join(options.base_systems_path, v + '-armhf',
-                                   'etc/passwd')
+    for v in METAS.values():
+        passwd_file = os.path.join(options.base_systems_path, v[0], 'etc/passwd')
 
         with open(passwd_file, encoding='utf-8') as f:
             for line in f:
-                RPCHandler.users_list[v].append(line.split(':'))
+                RPCHandler.users_list[v[0]].append(line.split(':'))
 
-    for v in VALID_SUITES.values():
-        base_sytem = os.path.join(options.base_systems_path, v + '-armhf')
+    for v in METAS.values():
+        base_sytem = os.path.join(options.base_systems_path, v[0])
         status_file = os.path.join(base_sytem, 'var/lib/dpkg/status')
         with open(status_file, encoding='utf-8') as f:
             for package in deb822.Packages.iter_paragraphs(f):
-                RPCHandler.base_packages_list[v].append(package['package'])
+                RPCHandler.base_packages_list[v[0]].append(package['package'])
 
     LOGGER.info('RPC server is ready!')
 
