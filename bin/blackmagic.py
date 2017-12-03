@@ -5,6 +5,7 @@ import os.path
 import re
 import shutil
 import uuid
+import urllib.request
 from functools import wraps
 from pathlib import Path
 
@@ -36,9 +37,6 @@ define('db_name',
 define('dominion_workspace',
        default='/var/dominion/workspace/',
        help='')
-define('keyring_package',
-       default='/var/blackmagic/debian-archive-keyring_2014.3_all.deb',
-       help='')
 define('max_builds_number',
        default=8,
        type=int,
@@ -60,14 +58,20 @@ METAS = {
     'Raspbian 9 "Stretch" (32-bit)': [
         'raspbian-stretch-armhf',
         'http://archive.raspbian.org/raspbian',
+        ('http://archive.raspbian.org/raspbian/pool/main/r/raspbian-archive-'
+         'keyring/raspbian-archive-keyring_20120528.2_all.deb'),
     ],
     'Ubuntu 16.04 "Xenial Xerus" (32-bit)': [
         'ubuntu-xenial-armhf',
         'http://ports.ubuntu.com/ubuntu-ports/',
+        ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
+         'ubuntu-keyring_2016.10.27_all.deb'),
     ],
     'Ubuntu 17.10 "Artful Aardvark" (64-bit)': [
         'ubuntu-artful-arm64',
         'http://ports.ubuntu.com/ubuntu-ports/',
+        ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
+         'ubuntu-keyring_2016.10.27_all.deb'),
     ],
 }
 
@@ -92,6 +96,13 @@ class DistroDoesNotExist(Exception):
     is not valid.
     """
     pass
+
+
+def get_keyring_package_name(distro):
+    if distro in METAS.keys():
+        return os.path.basename(METAS[distro][2])
+    else:
+        raise DistroDoesNotExist
 
 
 def get_os_name(distro):
@@ -150,6 +161,7 @@ class RPCHandler(RPCServer):
 
         self._arch = ''
         self._collection_name = ''
+        self._keyring = ''
         self._mirror = ''
         self._os = ''
         self._suite = ''
@@ -203,6 +215,7 @@ class RPCHandler(RPCServer):
         self._os = get_os_name(distro)
         self._arch = self._os.split('-')[2]
         self._suite = self._os.split('-')[1]
+        self._keyring = get_keyring_package_name(distro)
         self._mirror = get_mirror_address(distro)
         self._collection_name = self._os
         self._init_mongodb(self._collection_name)
@@ -252,7 +265,7 @@ class RPCHandler(RPCServer):
         request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
         yield gen.sleep(1)
 
-        command_line = ['dpkg', '-x', options.keyring_package, resolver_env]
+        command_line = ['dpkg', '-x', '/tmp/' + self._keyring, resolver_env]
         output = yield util.run(command_line)
         LOGGER.debug('dpkg: {}'.format(output))
 
@@ -525,11 +538,6 @@ def main():
                      'parameter does not exist')
         exit(1)
 
-    if not os.path.isfile(options.keyring_package):
-        LOGGER.error('The file specified via the keyring_package parameter '
-                     'does not exist')
-        exit(1)
-
     if not os.path.isdir(options.workspace):
         LOGGER.error('The directory specified via the workspace parameter '
                      'does not exist')
@@ -543,6 +551,12 @@ def main():
         with open(passwd_file, encoding='utf-8') as f:
             for line in f:
                 RPCHandler.users_list[v[0]].append(line.split(':'))
+
+        keyring = v[2]
+        LOGGER.info('Downloading {}...'.format(keyring))
+        response = urllib.request.urlopen(keyring)
+        with open('/tmp/' + os.path.basename(keyring), 'b+w') as f:
+            f.write(response.read())
 
     for v in METAS.values():
         base_sytem = os.path.join(options.base_systems_path, v[0])
