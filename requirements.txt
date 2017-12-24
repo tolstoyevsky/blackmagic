@@ -2,7 +2,7 @@ celery==3.*
 chardet
 django==1.8.*
 psycopg2
-pymongo
+pymongo==3.5.1
 python-debian
 
 -e git+ssh://git@bitbucket.org/cusdeb/django-cusdeb-firmwares.git#egg=django-cusdeb-firmwares
