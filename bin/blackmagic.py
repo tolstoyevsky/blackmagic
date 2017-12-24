@@ -60,18 +60,21 @@ METAS = {
         'http://archive.raspbian.org/raspbian',
         ('http://archive.raspbian.org/raspbian/pool/main/r/raspbian-archive-'
          'keyring/raspbian-archive-keyring_20120528.2_all.deb'),
+        'free',
     ],
     'Ubuntu 16.04 "Xenial Xerus" (32-bit)': [
         'ubuntu-xenial-armhf',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
          'ubuntu-keyring_2016.10.27_all.deb'),
+        'free',
     ],
     'Ubuntu 17.10 "Artful Aardvark" (64-bit)': [
         'ubuntu-artful-arm64',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
          'ubuntu-keyring_2016.10.27_all.deb'),
+        'pro',
     ],
 }
 
@@ -115,6 +118,13 @@ def get_os_name(distro):
 def get_mirror_address(distro):
     if distro in METAS.keys():
         return METAS[distro][1]
+    else:
+        raise DistroDoesNotExist
+
+
+def is_paid(distro):
+    if distro in METAS.keys():
+        return METAS[distro][3] == 'pro'
     else:
         raise DistroDoesNotExist
 
@@ -165,6 +175,7 @@ class RPCHandler(RPCServer):
         self._mirror = ''
         self._os = ''
         self._suite = ''
+        self._paid = False;
 
         self.image = {
             'id': None,
@@ -212,6 +223,7 @@ class RPCHandler(RPCServer):
 
         self.init_lock = True
 
+        self._paid = is_paid(distro)
         self._os = get_os_name(distro)
         self._arch = self._os.split('-')[2]
         self._suite = self._os.split('-')[1]
@@ -285,7 +297,8 @@ class RPCHandler(RPCServer):
 
         user = self._get_user()
         firmware = Firmware(name=build_id, user=user,
-                            status=Firmware.INITIALIZED)
+                            status=Firmware.INITIALIZED,
+                            pro_only=self._paid)
         firmware.save()
 
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
