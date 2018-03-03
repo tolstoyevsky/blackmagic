@@ -67,7 +67,7 @@ METAS = {
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
          'ubuntu-keyring_2016.10.27_all.deb'),
-        'free',
+        'pro',
     ],
     'Ubuntu 17.10 "Artful Aardvark" (64-bit)': [
         'ubuntu-artful-arm64',
