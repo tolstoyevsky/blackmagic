@@ -99,6 +99,7 @@ EMAIL_NOTIFICATIONS_FAILED = 20
 OVERLOADED = 21
 FIRMWARE_WAS_REMOVED = 21
 NOT_FOUND = 22
+MAINTENANCE_MODE = 23
 
 
 class DistroDoesNotExist(Exception):
@@ -222,6 +223,15 @@ class RPCHandler(RPCServer):
 
     @remote
     def init(self, request, name, target_device, distro):
+        maintenance_mode = self.redis_conn.get('maintenance_mode')
+        if not maintenance_mode:
+            maintenance_mode = 0
+        else:
+            maintenance_mode = int(maintenance_mode)
+        LOGGER.debug('maintenance_mode {}'.format(maintenance_mode))
+        if maintenance_mode:
+            request.ret(MAINTENANCE_MODE)
+
         if self.init_lock:
             request.ret(LOCKED)
 
