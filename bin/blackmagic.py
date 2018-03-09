@@ -83,6 +83,13 @@ METAS = {
          'ubuntu-keyring_2016.10.27_all.deb'),
         'pro',
     ],
+    'Devuan 1 "Jessie" (32-bit)': [
+        'devuan-jessie-armhf',
+        'http://auto.mirror.devuan.org/merged/',
+        ('http://auto.mirror.devuan.org/merged/pool/DEVUAN/main/d/devuan-keyring/'
+         'devuan-keyring_2017.10.03_all.deb'),
+        'free',
+    ],
 }
 
 READY = 10
