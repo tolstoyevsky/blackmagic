@@ -322,7 +322,8 @@ class RPCHandler(RPCServer):
         user = self._get_user()
         firmware = Firmware(name=build_id, user=user,
                             status=Firmware.INITIALIZED,
-                            pro_only=self._paid)
+                            pro_only=self._paid,
+                            format=Firmware.TAR_GZ)
         firmware.save()
 
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
@@ -453,14 +454,15 @@ class RPCHandler(RPCServer):
         user = User.objects.get(id=self.user_id)
         firmwares = Firmware.objects.filter(user=user, name=name)
         if firmwares:
-            filename = os.path.join(options.dominion_workspace,
-                                    name + '.tar.gz')
-            firmwares.delete()
-            if Path(filename).is_file():
-                os.remove(filename)
-            else:
-                LOGGER.error('Failed to remove {}: '
-                             'file does not exist'.format(filename))
+            for firmware in firmwares:
+                filename = os.path.join(options.dominion_workspace,
+                                        name + '.{}'.format(firmware.format))
+                firmware.delete()
+                if Path(filename).is_file():
+                    os.remove(filename)
+                else:
+                    LOGGER.error('Failed to remove {}: '
+                                 'file does not exist'.format(filename))
 
             request.ret(FIRMWARE_WAS_REMOVED)
         else:
