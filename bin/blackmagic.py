@@ -323,7 +323,7 @@ class RPCHandler(RPCServer):
         firmware = Firmware(name=build_id, user=user,
                             status=Firmware.INITIALIZED,
                             pro_only=self._paid,
-                            format=Firmware.TAR_GZ)
+                            format=Firmware.IMG_GZ)
         firmware.save()
 
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
