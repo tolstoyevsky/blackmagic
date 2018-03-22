@@ -22,7 +22,7 @@ from tornado import gen
 from tornado.options import define, options
 from tornado.process import Subprocess
 
-from firmwares.models import Firmware
+from firmwares.models import Firmware, TargetDevice, Distro
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
 from users.models import User
@@ -201,6 +201,8 @@ class RPCHandler(RPCServer):
             'users': [],
             'configuration': [],
         }
+        self._distro = None
+        self._target_device = None
 
         self.inst_pattern = re.compile('Inst ([-\.\w]+)')
 
@@ -212,6 +214,20 @@ class RPCHandler(RPCServer):
             return self.user
         else:
             return self.user
+
+    def _get_distro(self, distro_name):
+        if not self._distro:
+            self._distro = Distro.objects.get(full_name=distro_name)
+            return self._distro
+        else:
+            return self._distro
+
+    def _get_target_device(self, target_device_name):
+        if not self._target_device:
+            self._target_device = TargetDevice.objects.get(full_name=target_device_name)
+            return self._target_device
+        else:
+            return self._target_device
 
     def _init_mongodb(self, collection_name):
         client = MongoClient(options.mongodb_host, options.mongodb_port)
@@ -229,7 +245,7 @@ class RPCHandler(RPCServer):
         self._remove_resolver_env()
 
     @remote
-    def init(self, request, name, target_device, distro):
+    def init(self, request, name, target_device_name, distro_name):
         maintenance_mode = self.redis_conn.get('maintenance_mode')
         if not maintenance_mode:
             maintenance_mode = 0
@@ -247,12 +263,12 @@ class RPCHandler(RPCServer):
 
         self.init_lock = True
 
-        self._paid = is_paid(distro)
-        self._os = get_os_name(distro)
+        self._paid = is_paid(distro_name)
+        self._os = get_os_name(distro_name)
         self._arch = self._os.split('-')[2]
         self._suite = self._os.split('-')[1]
-        self._keyring = get_keyring_package_name(distro)
-        self._mirror = get_mirror_address(distro)
+        self._keyring = get_keyring_package_name(distro_name)
+        self._mirror = get_mirror_address(distro_name)
         self._collection_name = self._os
         self._init_mongodb(self._collection_name)
 
@@ -265,8 +281,8 @@ class RPCHandler(RPCServer):
             os.path.join(options.workspace, build_id)
 
         self.image['target'] = {
-            'distro': distro,
-            'device': target_device
+            'distro': distro_name,
+            'device': target_device_name
         }
 
         LOGGER.debug('Creating hierarchy in {}'.format(resolver_env))
@@ -320,9 +336,13 @@ class RPCHandler(RPCServer):
         yield proc.wait_for_exit()
 
         user = self._get_user()
+        distro = self._get_distro(distro_name)
+        target_device = self._get_target_device(target_device_name)
         firmware = Firmware(name=build_id, user=user,
                             status=Firmware.INITIALIZED,
                             pro_only=self._paid,
+                            distro=distro,
+                            targetdevice=target_device,
                             format=Firmware.IMG_GZ)
         firmware.save()
 
@@ -447,7 +467,20 @@ class RPCHandler(RPCServer):
         user = User.objects.get(id=self.user_id)
         firmwares = Firmware.objects.filter(user=user) \
                                     .filter(status=Firmware.DONE)
-        request.ret([firmware.name for firmware in firmwares])
+        result = []
+        for firmware in firmwares:
+            f = {'name': firmware.name}
+            if firmware.distro is None:
+                f['distro'] = None
+            else:
+                f['distro'] = {'full_name': firmware.distro.full_name}
+            if firmware.targetdevice is None:
+                f['targetdevice'] = None
+            else:
+                f['targetdevice'] = {'full_name': firmware.targetdevice.full_name}
+            result.append(f)
+
+        request.ret(result)
 
     @remote
     def delete_firmware(self, request, name):
@@ -498,13 +531,8 @@ class RPCHandler(RPCServer):
 
     @remote
     def get_target_devices_list(self, request):
-        target_devices_list = [
-            'Raspberry Pi Model B and B+',
-            'Raspberry Pi 2 Model B',
-            'Raspberry Pi 3 Model B',
-            'Raspberry Pi Zero',
-        ]
-        request.ret(target_devices_list)
+        target_devices = TargetDevice.objects.all()
+        request.ret([device.full_name for device in target_devices])
 
     @only_if_initialized
     @remote
