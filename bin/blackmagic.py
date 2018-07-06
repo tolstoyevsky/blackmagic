@@ -69,15 +69,15 @@ METAS = {
          'ubuntu-keyring_2016.10.27_all.deb'),
         'pro',
     ],
-    'Ubuntu 17.10 "Artful Aardvark" (32-bit)': [
-        'ubuntu-artful-armhf',
+    'Ubuntu 18.04 "Bionic Beaver" (32-bit)': [
+        'ubuntu-bionic-armhf',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
          'ubuntu-keyring_2016.10.27_all.deb'),
         'pro',
     ],
-    'Ubuntu 17.10 "Artful Aardvark" (64-bit)': [
-        'ubuntu-artful-arm64',
+    'Ubuntu 18.04 "Bionic Beaver" (64-bit)': [
+        'ubuntu-bionic-arm64',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
          'ubuntu-keyring_2016.10.27_all.deb'),
