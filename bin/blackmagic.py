@@ -318,7 +318,7 @@ class RPCHandler(RPCServer):
         yield gen.sleep(1)
 
         command_line = ['dpkg', '-x', '/tmp/' + self._keyring, resolver_env]
-        output = yield util.run(command_line)
+        output = yield util.execute_async(command_line)
         LOGGER.debug('dpkg: {}'.format(output))
 
         LOGGER.debug('Executing apt-get update')
@@ -575,7 +575,7 @@ class RPCHandler(RPCServer):
                   '/var/lib/dpkg/status'
         ] + packages_list
 
-        data = yield util.run(command_line)
+        data = yield util.execute_async(command_line)
 
         # The output of the above command line will look like the
         # following set of lines:
