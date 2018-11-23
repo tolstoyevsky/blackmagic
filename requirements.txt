@@ -5,7 +5,7 @@ psycopg2
 pymongo==3.5.1
 python-debian
 
--e git+ssh://git@bitbucket.org/cusdeb/django-cusdeb-firmwares.git#egg=django-cusdeb-firmwares
+-e git+https://github.com/tolstoyevsky/django-cusdeb-firmwares.git#egg=django-cusdeb-firmwares
 -e git+ssh://git@bitbucket.org/cusdeb/django-cusdeb-users.git#egg=django-cusdeb-users
--e git+ssh://git@bitbucket.org/cusdeb/dominion.git#egg=dominion
+-e git+https://github.com/tolstoyevsky/dominion.git#egg=dominion
 -e git+https://github.com/tolstoyevsky/shirow.git#egg=shirow
