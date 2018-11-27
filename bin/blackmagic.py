@@ -398,6 +398,13 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
+    def mender_params(self, request, mender_configuration_params):
+        self.image['Mender'] = mender_configuration_params
+        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
+        request.ret(READY)
+
+    @only_if_initialized
+    @remote
     def add_user(self, request, username, password, uid, gid, comment, homedir,
                  shell):
         self.image['users'].append({
