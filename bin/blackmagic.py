@@ -245,7 +245,7 @@ class RPCHandler(RPCServer):
         self._remove_resolver_env()
 
     @remote
-    def init(self, request, name, target_device_name, distro_name):
+    def init(self, request, name, target_device_name, distro_name, build_type):
         maintenance_mode = self.redis_conn.get('maintenance_mode')
         if not maintenance_mode:
             maintenance_mode = 0
@@ -284,6 +284,7 @@ class RPCHandler(RPCServer):
             'distro': distro_name,
             'device': target_device_name
         }
+        self.image['build_type'] = build_type
 
         LOGGER.debug('Creating hierarchy in {}'.format(resolver_env))
         request.ret_and_continue(PREPARE_ENV)
