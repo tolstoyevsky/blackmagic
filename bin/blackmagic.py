@@ -245,7 +245,7 @@ class RPCHandler(RPCServer):
         self._remove_resolver_env()
 
     @remote
-    def init(self, request, name, target_device_name, distro_name, build_type):
+    def init(self, request, name, target_device_name, distro_name, build_type=1):
         maintenance_mode = self.redis_conn.get('maintenance_mode')
         if not maintenance_mode:
             maintenance_mode = 0
