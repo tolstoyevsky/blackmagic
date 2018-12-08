@@ -16,6 +16,7 @@ from celery.result import AsyncResult
 from debian import deb822
 from django.conf import settings
 from dominion.tasks import build
+from dominion.tasks import MENDER_ARTIFACT
 from pymongo import MongoClient
 from shirow import util
 from tornado import gen
@@ -339,12 +340,16 @@ class RPCHandler(RPCServer):
         user = self._get_user()
         distro = self._get_distro(distro_name)
         target_device = self._get_target_device(target_device_name)
+        if build_type == MENDER_ARTIFACT:
+            firmware_format = Firmware.ART_MENDER
+        else:
+            firmware_format = Firmware.IMG_GZ
         firmware = Firmware(name=build_id, user=user,
                             status=Firmware.INITIALIZED,
                             pro_only=self._paid,
                             distro=distro,
                             targetdevice=target_device,
-                            format=Firmware.IMG_GZ)
+                            format=firmware_format)
         firmware.save()
 
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
