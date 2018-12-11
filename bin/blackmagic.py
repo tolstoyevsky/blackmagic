@@ -16,7 +16,6 @@ from celery.result import AsyncResult
 from debian import deb822
 from django.conf import settings
 from dominion.tasks import build
-from dominion.tasks import MENDER_ARTIFACT
 from pymongo import MongoClient
 from shirow import util
 from tornado import gen
@@ -230,12 +229,9 @@ class RPCHandler(RPCServer):
         else:
             return self._target_device
 
-    def _init_mongodb(self, collection_name):
+    def _init_mongodb(self):
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
-        self.collection = self.db[collection_name]
-
-        self.packages_number = self.collection.find().count()
 
     def _remove_resolver_env(self):
         if os.path.isdir(self.image['resolver_env']):
@@ -271,7 +267,9 @@ class RPCHandler(RPCServer):
         self._keyring = get_keyring_package_name(distro_name)
         self._mirror = get_mirror_address(distro_name)
         self._collection_name = self._os
-        self._init_mongodb(self._collection_name)
+        self._init_mongodb()
+        self.collection = self.db[self._collection_name]
+        self.packages_number = self.collection.find().count()
 
         if self.image['resolver_env']:
             self._remove_resolver_env()
@@ -340,16 +338,12 @@ class RPCHandler(RPCServer):
         user = self._get_user()
         distro = self._get_distro(distro_name)
         target_device = self._get_target_device(target_device_name)
-        if build_type == MENDER_ARTIFACT:
-            firmware_format = Firmware.ART_MENDER
-        else:
-            firmware_format = Firmware.IMG_GZ
         firmware = Firmware(name=build_id, user=user,
                             status=Firmware.INITIALIZED,
                             pro_only=self._paid,
                             distro=distro,
-                            targetdevice=target_device,
-                            format=firmware_format)
+                            targetdevice=target_device)
+        firmware.set_build_type(build_type)
         firmware.save()
 
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
@@ -470,9 +464,11 @@ class RPCHandler(RPCServer):
 
     @remote
     def get_built_images(self, request):
+        self._init_mongodb()
         user = User.objects.get(id=self.user_id)
         firmwares = Firmware.objects.filter(user=user) \
-                                    .filter(status=Firmware.DONE)
+                                    .filter(status=Firmware.DONE) \
+                                    .order_by('-started_at')
         result = []
         for firmware in firmwares:
             f = {'name': firmware.name}
@@ -492,7 +488,11 @@ class RPCHandler(RPCServer):
                 f['buildtype'] = {'full_name': 'Classic image'}
             else:
                 f['buildtype'] = {'full_name': firmware.build_type.full_name}
-                f['started_at'] = firmware.started_at.strftime('%c')
+            f['started_at'] = firmware.started_at.strftime('%c')
+            f['notes'] = firmware.notes
+            images_date = self.db.images.find_one({"_id": firmware.name})
+            f['packages'] = images_date['selected_packages']
+            f['configuration'] = images_date['configuration']
             result.append(f)
 
         request.ret(result)
