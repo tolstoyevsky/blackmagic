@@ -485,9 +485,14 @@ class RPCHandler(RPCServer):
             else:
                 f['targetdevice'] = {'full_name': firmware.targetdevice.full_name}
             if firmware.targetdevice.short_name == 'rpi-3-b' and firmware.distro.short_name == 'ubuntu-bionic-arm64':
-               f['emulate'] = True
+                f['emulate'] = True
             else: 
-               f['emulate'] = False
+                f['emulate'] = False
+            if firmware.build_type is None:
+                f['buildtype'] = {'full_name': 'Classic image'}
+            else:
+                f['buildtype'] = {'full_name': firmware.build_type.full_name}
+                f['started_at'] = firmware.started_at.strftime('%c')
             result.append(f)
 
         request.ret(result)
