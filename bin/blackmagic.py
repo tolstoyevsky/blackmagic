@@ -516,6 +516,18 @@ class RPCHandler(RPCServer):
         else:
             request.ret(NOT_FOUND)
 
+    @remote
+    def save_firmware_notes(self, request, name, notes):
+        user = User.objects.get(id=self.user_id)
+        firmwares = Firmware.objects.filter(user=user, name=name)
+        if firmwares:
+            for firmware in firmwares:
+                firmware.notes = notes
+                firmware.save()
+            request.ret(READY)
+        else:
+            request.ret(NOT_FOUND)
+
     @only_if_initialized
     @remote
     def get_packages_list(self, request, page_number, per_page):
