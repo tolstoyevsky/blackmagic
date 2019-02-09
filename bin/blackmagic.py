@@ -22,7 +22,7 @@ from tornado import gen
 from tornado.options import define, options
 from tornado.process import Subprocess
 
-from firmwares.models import Firmware, TargetDevice, Distro
+from firmwares.models import Firmware, TargetDevice, Distro, UnknownBuildTypeId
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
 from users.models import User
@@ -107,6 +107,7 @@ OVERLOADED = 21
 FIRMWARE_WAS_REMOVED = 21
 NOT_FOUND = 22
 MAINTENANCE_MODE = 23
+UNKNOWN_BUID_TYPE = 24
 
 
 class DistroDoesNotExist(Exception):
@@ -343,8 +344,14 @@ class RPCHandler(RPCServer):
                             pro_only=self._paid,
                             distro=distro,
                             targetdevice=target_device)
-        firmware.set_build_type(build_type)
-        firmware.save()
+        try:
+            LOGGER.debug(build_type);
+            firmware.set_build_type(build_type)
+        except UnknownBuildTypeId as e:
+            LOGGER.error(str(e))
+            request.ret(UNKNOWN_BUID_TYPE)
+        else:
+            firmware.save()
 
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
 
