@@ -345,7 +345,6 @@ class RPCHandler(RPCServer):
                             distro=distro,
                             targetdevice=target_device)
         try:
-            LOGGER.debug(build_type);
             firmware.set_build_type(build_type)
         except UnknownBuildTypeId as e:
             LOGGER.error(str(e))
