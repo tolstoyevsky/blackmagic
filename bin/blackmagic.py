@@ -55,20 +55,6 @@ LOGGER = logging.getLogger('tornado.application')
 DEFAULT_ROOT_PASSWORD = 'cusdeb'
 
 METAS = {
-    'Devuan 1 "Jessie" (32-bit)': [
-        'devuan-jessie-armhf',
-        'http://auto.mirror.devuan.org/merged/',
-        ('http://auto.mirror.devuan.org/merged/pool/DEVUAN/main/d/devuan-keyring/'
-         'devuan-keyring_2017.10.03_all.deb'),
-        'free',
-    ],
-    'Debian 10 "Buster" (32-bit)': [
-        'debian-buster-armhf',
-        'http://deb.debian.org/debian/',
-        ('http://deb.debian.org/debian/pool/main/d/debian-keyring/'
-         'debian-keyring_2019.02.25_all.deb'),
-        'free',
-    ],
     'Raspbian 9 "Stretch" (32-bit)': [
         'raspbian-stretch-armhf',
         'http://archive.raspbian.org/raspbian',
@@ -96,6 +82,20 @@ METAS = {
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
          'ubuntu-keyring_2016.10.27_all.deb'),
         'pro',
+    ],
+    'Devuan 1 "Jessie" (32-bit)': [
+        'devuan-jessie-armhf',
+        'http://auto.mirror.devuan.org/merged/',
+        ('http://auto.mirror.devuan.org/merged/pool/DEVUAN/main/d/devuan-keyring/'
+         'devuan-keyring_2017.10.03_all.deb'),
+        'free',
+    ],
+    'Debian 10 "Buster" (32-bit)': [
+        'debian-buster-armhf',
+        'http://deb.debian.org/debian/',
+        ('http://deb.debian.org/debian/pool/main/d/debian-keyring/'
+         'debian-keyring_2019.02.25_all.deb'),
+        'free',
     ],
 }
 
