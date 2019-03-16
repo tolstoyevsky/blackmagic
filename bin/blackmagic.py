@@ -250,7 +250,9 @@ class RPCHandler(RPCServer):
         else:
             maintenance_mode = int(maintenance_mode)
         LOGGER.debug('maintenance_mode {}'.format(maintenance_mode))
-        if maintenance_mode:
+        user = self._get_user()
+        # ignore maintenance mode if a user can access admin panel
+        if maintenance_mode and not user.is_staff:
             request.ret(MAINTENANCE_MODE)
 
         if self.init_lock:
@@ -336,7 +338,6 @@ class RPCHandler(RPCServer):
         proc = Subprocess(command_line)
         yield proc.wait_for_exit()
 
-        user = self._get_user()
         distro = self._get_distro(distro_name)
         target_device = self._get_target_device(target_device_name)
         firmware = Firmware(name=build_id, user=user,
