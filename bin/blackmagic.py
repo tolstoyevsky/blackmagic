@@ -60,7 +60,7 @@ METAS = {
         'http://archive.raspbian.org/raspbian',
         ('http://archive.raspbian.org/raspbian/pool/main/r/raspbian-archive-'
          'keyring/raspbian-archive-keyring_20120528.2_all.deb'),
-        'free',
+        'pro',
     ],
     'Ubuntu 16.04 "Xenial Xerus" (32-bit)': [
         'ubuntu-xenial-armhf',
@@ -88,7 +88,7 @@ METAS = {
         'http://auto.mirror.devuan.org/merged/',
         ('http://auto.mirror.devuan.org/merged/pool/DEVUAN/main/d/devuan-keyring/'
          'devuan-keyring_2017.10.03_all.deb'),
-        'free',
+        'pro',
     ],
     'Debian 10 "Buster" (32-bit)': [
         'debian-buster-armhf',
