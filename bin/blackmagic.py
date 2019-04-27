@@ -60,42 +60,36 @@ METAS = {
         'http://archive.raspbian.org/raspbian',
         ('http://archive.raspbian.org/raspbian/pool/main/r/raspbian-archive-'
          'keyring/raspbian-archive-keyring_20120528.2_all.deb'),
-        'pro',
     ],
     'Ubuntu 16.04 "Xenial Xerus" (32-bit)': [
         'ubuntu-xenial-armhf',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
          'ubuntu-keyring_2016.10.27_all.deb'),
-        'pro',
     ],
     'Ubuntu 18.04 "Bionic Beaver" (32-bit)': [
         'ubuntu-bionic-armhf',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
          'ubuntu-keyring_2016.10.27_all.deb'),
-        'pro',
     ],
     'Ubuntu 18.04 "Bionic Beaver" (64-bit)': [
         'ubuntu-bionic-arm64',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
          'ubuntu-keyring_2016.10.27_all.deb'),
-        'pro',
     ],
     'Devuan 1 "Jessie" (32-bit)': [
         'devuan-jessie-armhf',
         'http://auto.mirror.devuan.org/merged/',
         ('http://auto.mirror.devuan.org/merged/pool/DEVUAN/main/d/devuan-keyring/'
          'devuan-keyring_2017.10.03_all.deb'),
-        'pro',
     ],
     'Debian 10 "Buster" (32-bit)': [
         'debian-buster-armhf',
         'http://deb.debian.org/debian/',
         ('http://deb.debian.org/debian/pool/main/d/debian-keyring/'
          'debian-keyring_2019.02.25_all.deb'),
-        'free',
     ],
 }
 
@@ -145,11 +139,11 @@ def get_mirror_address(distro):
         raise DistroDoesNotExist
 
 
-def is_paid(distro):
-    if distro in METAS.keys():
-        return METAS[distro][3] == 'pro'
+def is_paid(distro, device):
+    if device == 'Orange Pi Zero' and distro == 'Debian 10 "Buster" (32-bit)':
+        return False;
     else:
-        raise DistroDoesNotExist
+        raise True
 
 
 def only_if_initialized(func):
@@ -268,7 +262,7 @@ class RPCHandler(RPCServer):
 
         self.init_lock = True
 
-        self._paid = is_paid(distro_name)
+        self._paid = is_paid(distro_name, target_device_name)
         self._os = get_os_name(distro_name)
         self._arch = self._os.split('-')[2]
         self._suite = self._os.split('-')[1]
