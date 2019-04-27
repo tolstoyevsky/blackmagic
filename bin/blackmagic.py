@@ -143,7 +143,7 @@ def is_paid(distro, device):
     if device == 'Orange Pi Zero' and distro == 'Debian 10 "Buster" (32-bit)':
         return False;
     else:
-        raise True
+        return True
 
 
 def only_if_initialized(func):
