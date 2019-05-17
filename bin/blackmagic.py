@@ -65,19 +65,19 @@ METAS = {
         'ubuntu-xenial-armhf',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
-         'ubuntu-keyring_2016.10.27_all.deb'),
+         'ubuntu-keyring_2012.05.19_all.deb'),
     ],
     'Ubuntu 18.04 "Bionic Beaver" (32-bit)': [
         'ubuntu-bionic-armhf',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
-         'ubuntu-keyring_2016.10.27_all.deb'),
+         'ubuntu-keyring_2018.02.28_all.deb'),
     ],
     'Ubuntu 18.04 "Bionic Beaver" (64-bit)': [
         'ubuntu-bionic-arm64',
         'http://ports.ubuntu.com/ubuntu-ports/',
         ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
-         'ubuntu-keyring_2016.10.27_all.deb'),
+         'ubuntu-keyring_2018.02.28_all.deb'),
     ],
     'Devuan 1 "Jessie" (32-bit)': [
         'devuan-jessie-armhf',
