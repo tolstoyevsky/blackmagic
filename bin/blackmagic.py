@@ -4,6 +4,7 @@ import os
 import os.path
 import re
 import shutil
+import subprocess
 import uuid
 import urllib.request
 from functools import wraps
@@ -202,6 +203,7 @@ class RPCHandler(RPCServer):
             'target': {},
             'users': [],
             'configuration': [],
+            'xfce4': False,
         }
         self._distro = None
         self._target_device = None
@@ -312,9 +314,13 @@ class RPCHandler(RPCServer):
         status_file = os.path.join(base_sytem, 'var/lib/dpkg/status')
         shutil.copyfile(status_file, resolver_env + '/var/lib/dpkg/status')
 
+        section = 'main'
+        if (self._os == 'ubuntu-bionic-armhf' or self._os == 'ubuntu-bionic-arm64'):
+            section += ' universe'
+
         with open(resolver_env + '/etc/apt/sources.list', 'w') as f:
-            f.write('deb [arch={}] {} {} main'.format(self._arch, self._mirror,
-                                                      self._suite))
+            f.write('deb [arch={}] {} {} {}'.format(self._arch, self._mirror,
+                                                      self._suite, section))
 
         request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
         yield gen.sleep(1)
@@ -334,8 +340,7 @@ class RPCHandler(RPCServer):
             '-o', 'Dir::State::status=' + resolver_env +
                   '/var/lib/dpkg/status'
         ]
-        proc = Subprocess(command_line)
-        yield proc.wait_for_exit()
+        proc = subprocess.run(command_line)
 
         user = self._get_user()
         distro = self._get_distro(distro_name)
@@ -498,6 +503,9 @@ class RPCHandler(RPCServer):
             f['started_at'] = firmware.started_at.strftime('%c')
             f['notes'] = firmware.notes
             images_date = self.db.images.find_one({"_id": firmware.name})
+            emulate_button = images_date.get('xfce4', False)
+            if emulate_button:
+                f['emulate'] = False
             f['packages'] = images_date['selected_packages']
             f['configuration'] = images_date['configuration']
             result.append(f)
@@ -594,6 +602,13 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
+    def desktop_environment(self, request, xfce4):
+        self.image['xfce4'] = bool(xfce4)
+        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
+        request.ret(READY)
+
+    @only_if_initialized
+    @remote
     def resolve(self, request, packages_list):
         self.image['selected_packages'] = packages_list
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
@@ -609,8 +624,11 @@ class RPCHandler(RPCServer):
                   '/var/lib/dpkg/status'
         ] + packages_list
 
-        data = yield util.execute_async(command_line)
-
+        command_data = ' '.join(command_line)
+        data = subprocess.Popen(command_data.split(), stdout=subprocess.PIPE)
+        output, error = data.communicate()
+        if type(error) != 'NoneType':
+            request.ret(BUILD_FAILED)
         # The output of the above command line will look like the
         # following set of lines:
         # NOTE: This is only a simulation!
@@ -625,7 +643,7 @@ class RPCHandler(RPCServer):
         # Conf libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
         # Conf libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
         # ...
-        packages_to_be_installed = self.inst_pattern.findall(str(data))
+        packages_to_be_installed = self.inst_pattern.findall(str(output))
         dependencies = set(packages_to_be_installed) - set(packages_list)
 
         # Python sets are not JSON serializable
