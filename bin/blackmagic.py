@@ -192,7 +192,7 @@ class RPCHandler(RPCServer):
         self._mirror = ''
         self._os = ''
         self._suite = ''
-        self._paid = False;
+        self._paid = False
 
         self.image = {
             'id': None,
