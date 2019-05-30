@@ -141,7 +141,7 @@ def get_mirror_address(distro):
 
 def is_paid(distro, device):
     if device == 'Orange Pi Zero' and distro == 'Debian 10 "Buster" (32-bit)':
-        return False;
+        return False
     else:
         return True
 
