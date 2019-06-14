@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import uuid
 import urllib.request
+import json
 from functools import wraps
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from django.conf import settings
 from dominion.tasks import build
 from pymongo import MongoClient
 from shirow import util
+from json import JSONDecodeError
 from tornado import gen
 from tornado.options import define, options
 from tornado.process import Subprocess
@@ -614,6 +616,20 @@ class RPCHandler(RPCServer):
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         resolver_env = self.image['resolver_env']
 
+        packages_list_sort = sorted(packages_list)
+        packages_list_str = '-'.join(packages_list_sort)
+        os_name = self._os
+        key_cache = os_name + '-' + packages_list_str
+
+        key_cache_value = self.redis_conn.get(key_cache)
+
+        if key_cache_value:
+            try:
+                dependencies_cache = json.loads(key_cache_value)
+                request.ret(dependencies_cache)
+            except JSONDecodeError:
+                pass
+
         command_line = [
             'apt-get', 'install', '--no-act', '-qq',
             '-o', 'APT::Architecture=all',
@@ -623,11 +639,11 @@ class RPCHandler(RPCServer):
             '-o', 'Dir::State::status=' + resolver_env +
                   '/var/lib/dpkg/status'
         ] + packages_list
-
-        command_data = ' '.join(command_line)
-        data = subprocess.Popen(command_data.split(), stdout=subprocess.PIPE)
+        
+        data = subprocess.Popen(command_line, stdout=subprocess.PIPE)
         output, error = data.communicate()
-        if type(error) != 'NoneType':
+
+        if bool(error):
             request.ret(BUILD_FAILED)
         # The output of the above command line will look like the
         # following set of lines:
@@ -645,7 +661,7 @@ class RPCHandler(RPCServer):
         # ...
         packages_to_be_installed = self.inst_pattern.findall(str(output))
         dependencies = set(packages_to_be_installed) - set(packages_list)
-
+        self.redis_conn.set(key_cache, json.dumps(list(dependencies)))
         # Python sets are not JSON serializable
         request.ret(list(dependencies))
 
