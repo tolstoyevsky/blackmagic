@@ -625,7 +625,7 @@ class RPCHandler(RPCServer):
 
         if key_cache_value:
             try:
-                dependencies_cache = json.loads(key_cache_value)
+                dependencies_cache = json.loads(key_cache_value.decode('utf-8'))
                 request.ret(dependencies_cache)
             except JSONDecodeError:
                 pass
