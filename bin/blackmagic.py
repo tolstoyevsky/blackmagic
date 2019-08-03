@@ -481,11 +481,15 @@ class RPCHandler(RPCServer):
         self._init_mongodb()
         user = User.objects.get(id=self.user_id)
         firmwares = Firmware.objects.filter(user=user) \
-                                    .filter(status=Firmware.DONE) \
+                                    .exclude(status=Firmware.INITIALIZED) \
                                     .order_by('-started_at')
         result = []
         for firmware in firmwares:
             f = {'name': firmware.name}
+            f['status'] = firmware.status
+            delete = firmware.status in [Firmware.DONE, Firmware.FAILED] 
+            f['delete'] = delete
+            f['download'] = firmware.status == Firmware.DONE
             if firmware.distro is None:
                 f['distro'] = None
             else:
