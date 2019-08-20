@@ -487,8 +487,7 @@ class RPCHandler(RPCServer):
         for firmware in firmwares:
             f = {'name': firmware.name}
             f['status'] = firmware.status
-            delete = firmware.status in [Firmware.DONE, Firmware.FAILED] 
-            f['delete'] = delete
+            f['delete'] = firmware.status in (Firmware.DONE, Firmware.FAILED)
             f['download'] = firmware.status == Firmware.DONE
             if firmware.distro is None:
                 f['distro'] = None
