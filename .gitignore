@@ -1,5 +1,6 @@
 .idea/
 __pycache__
 settings/dev.py
+settings/prod.py
 blackmagic.egg-info
 dist
