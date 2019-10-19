@@ -58,8 +58,8 @@ LOGGER = logging.getLogger('tornado.application')
 DEFAULT_ROOT_PASSWORD = 'cusdeb'
 
 METAS = {
-    'Raspbian 9 "Stretch" (32-bit)': [
-        'raspbian-stretch-armhf',
+    'Raspbian 10 "Buster" (32-bit)': [
+        'raspbian-buster-armhf',
         'http://archive.raspbian.org/raspbian',
         ('http://archive.raspbian.org/raspbian/pool/main/r/raspbian-archive-'
          'keyring/raspbian-archive-keyring_20120528.2_all.deb'),
