@@ -485,18 +485,14 @@ class RPCHandler(RPCServer):
                                     .order_by('-started_at')
         result = []
         for firmware in firmwares:
+            if firmware.distro is None or firmware.targetdevice is None:
+                continue
             f = {'name': firmware.name}
             f['status'] = firmware.status
             f['delete'] = firmware.status in (Firmware.DONE, Firmware.FAILED)
             f['download'] = firmware.status == Firmware.DONE
-            if firmware.distro is None:
-                f['distro'] = None
-            else:
-                f['distro'] = {'full_name': firmware.distro.full_name}
-            if firmware.targetdevice is None:
-                f['targetdevice'] = None
-            else:
-                f['targetdevice'] = {'full_name': firmware.targetdevice.full_name}
+            f['distro'] = {'full_name': firmware.distro.full_name}
+            f['targetdevice'] = {'full_name': firmware.targetdevice.full_name}
             if firmware.targetdevice.short_name == 'rpi-3-b' and firmware.distro.short_name == 'ubuntu-bionic-arm64':
                 f['emulate'] = True
             else: 
