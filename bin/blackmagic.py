@@ -509,7 +509,7 @@ class RPCHandler(RPCServer):
                 f['emulate'] = False
             f['packages'] = images_date['selected_packages']
             f['configuration'] = images_date['configuration']
-            if 'WPA_PSK' in f['configuration'] and len(f['configuration']['WPA_PSK']):
+            if 'WPA_PSK' in f['configuration'] and f['configuration']['WPA_PSK']:
                 f['configuration']['WPA_PSK'] = '********'
             result.append(f)
 
