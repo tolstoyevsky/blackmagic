@@ -55,6 +55,18 @@ define('workspace',
 
 LOGGER = logging.getLogger('tornado.application')
 
+DEFAULT_HOST_NAME = 'cusdeb'
+DEFAULT_ENABLE_WIRELESS = False
+DEFAULT_SSID = 'cusdeb'
+DEFAULT_PSK = ''
+
+DEFAULT_CONFIGURATION = {
+    'hostname': DEFAULT_HOST_NAME,
+    'enable_wireless': DEFAULT_ENABLE_WIRELESS,
+    'SSID': DEFAULT_SSID,
+    'PSK': DEFAULT_PSK,
+}
+
 DEFAULT_ROOT_PASSWORD = 'cusdeb'
 
 METAS = {
@@ -439,6 +451,11 @@ class RPCHandler(RPCServer):
         self.image['configuration'] = image_configuration_params
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         request.ret(READY)
+
+    @only_if_initialized
+    @remote
+    def get_default_configuration(self, request):
+        request.ret(DEFAULT_CONFIGURATION)
 
     @only_if_initialized
     @remote
