@@ -216,7 +216,7 @@ class RPCHandler(RPCServer):
             'selected_packages': [],
             'target': {},
             'users': [],
-            'configuration': [],
+            'configuration': dict(DEFAULT_CONFIGURATION),
             'xfce4': False,
         }
         self._distro = None
@@ -448,7 +448,7 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def sync_configuration(self, request, image_configuration_params):
-        self.image['configuration'] = image_configuration_params
+        self.image['configuration'].update(image_configuration_params)
         self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         request.ret(READY)
 
