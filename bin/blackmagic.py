@@ -261,15 +261,6 @@ class RPCHandler(RPCServer):
 
     @remote
     def init(self, request, name, target_device_name, distro_name, build_type_id=1):
-        maintenance_mode = self.redis_conn.get('maintenance_mode')
-        if not maintenance_mode:
-            maintenance_mode = 0
-        else:
-            maintenance_mode = int(maintenance_mode)
-        LOGGER.debug('maintenance_mode {}'.format(maintenance_mode))
-        if maintenance_mode:
-            request.ret(MAINTENANCE_MODE)
-
         if self.init_lock:
             request.ret(LOCKED)
 
@@ -388,15 +379,6 @@ class RPCHandler(RPCServer):
     def build(self, request):
         if not self.build_lock:
             self.build_lock = True
-
-            builds_number = self.redis_conn.get('builds_number')
-            if not builds_number:
-                builds_number = 0
-            else:
-                builds_number = int(builds_number)
-
-            if builds_number >= options.max_builds_number:
-                request.ret_and_continue(OVERLOADED)
 
             ret_code = 0
 
@@ -639,15 +621,6 @@ class RPCHandler(RPCServer):
         os_name = self._os
         key_cache = os_name + '-' + packages_list_str
 
-        key_cache_value = self.redis_conn.get(key_cache)
-
-        if key_cache_value:
-            try:
-                dependencies_cache = json.loads(key_cache_value.decode('utf-8'))
-                request.ret(dependencies_cache)
-            except JSONDecodeError:
-                pass
-
         command_line = [
             'apt-get', 'install', '--no-act', '-qq',
             '-o', 'APT::Architecture=all',
@@ -679,7 +652,7 @@ class RPCHandler(RPCServer):
         # ...
         packages_to_be_installed = self.inst_pattern.findall(str(output))
         dependencies = set(packages_to_be_installed) - set(packages_list)
-        self.redis_conn.set(key_cache, json.dumps(list(dependencies)))
+
         # Python sets are not JSON serializable
         request.ret(list(dependencies))
 
