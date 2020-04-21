@@ -4,5 +4,4 @@ psycopg2
 pymongo==3.5.1
 python-debian
 
--e git+ssh://git@bitbucket.org/cusdeb/django-cusdeb-users.git#egg=django-cusdeb-users
 -e git+https://github.com/tolstoyevsky/shirow.git#egg=shirow
