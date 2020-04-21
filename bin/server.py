@@ -2,14 +2,7 @@
 import logging
 import os
 import os.path
-import re
-import shutil
-import subprocess
 import uuid
-import urllib.request
-import json
-from functools import wraps
-from pathlib import Path
 
 import django
 import tornado.web
@@ -17,11 +10,7 @@ import tornado.options
 from debian import deb822
 from django.conf import settings
 from pymongo import MongoClient
-from shirow import util
-from json import JSONDecodeError
-from tornado import gen
 from tornado.options import define, options
-from tornado.process import Subprocess
 
 from blackmagic import defaults
 from blackmagic.decorators import only_if_initialized
