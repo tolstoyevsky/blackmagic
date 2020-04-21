@@ -186,7 +186,6 @@ class RPCHandler(RPCServer):
             'target': {},
             'users': [],
             'configuration': dict(defaults.CONFIGURATION),
-            'xfce4': False,
         }
         self._distro = None
         self._target_device = None
@@ -464,13 +463,6 @@ class RPCHandler(RPCServer):
                     packages_list.append(document['obj'])
 
         request.ret(packages_list)
-
-    @only_if_initialized
-    @remote
-    def desktop_environment(self, request, xfce4):
-        self.image['xfce4'] = bool(xfce4)
-        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
-        request.ret(READY)
 
     @only_if_initialized
     @remote
