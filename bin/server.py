@@ -27,7 +27,6 @@ from blackmagic import defaults
 from blackmagic.decorators import only_if_initialized
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
-from users.models import User
 
 define('base_systems_path',
        default='/var/chroot',
@@ -164,13 +163,6 @@ class RPCHandler(RPCServer):
 
         self.user = None  # the one who builds an image
 
-    def _get_user(self):
-        if not self.user:
-            self.user = User.objects.get(id=self.user_id)
-            return self.user
-        else:
-            return self.user
-
     def _init_mongodb(self):
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
@@ -202,8 +194,6 @@ class RPCHandler(RPCServer):
             'device': target_device_name
         }
         self.image['build_type'] = build_type_id
-
-        user = self._get_user()
 
         LOGGER.debug('Finishing initialization')
 
