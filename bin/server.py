@@ -25,6 +25,7 @@ from tornado import gen
 from tornado.options import define, options
 from tornado.process import Subprocess
 
+from blackmagic import defaults
 from blackmagic.decorators import only_if_initialized
 from firmwares.models import Firmware, TargetDevice, Distro, UnknownBuildTypeId
 from shirow.ioloop import IOLoop
@@ -55,20 +56,6 @@ define('workspace',
        default='/var/blackmagic/workspace')
 
 LOGGER = logging.getLogger('tornado.application')
-
-DEFAULT_HOST_NAME = 'cusdeb'
-DEFAULT_ENABLE_WIRELESS = False
-DEFAULT_SSID = 'cusdeb'
-DEFAULT_PSK = ''
-
-DEFAULT_CONFIGURATION = {
-    'hostname': DEFAULT_HOST_NAME,
-    'enable_wireless': DEFAULT_ENABLE_WIRELESS,
-    'SSID': DEFAULT_SSID,
-    'PSK': DEFAULT_PSK,
-}
-
-DEFAULT_ROOT_PASSWORD = 'cusdeb'
 
 METAS = {
     'Raspbian 10 "Buster" (32-bit)': [
@@ -194,11 +181,11 @@ class RPCHandler(RPCServer):
         self.image = {
             'id': None,
             'resolver_env': '',
-            'root_password': DEFAULT_ROOT_PASSWORD,
+            'root_password': defaults.ROOT_PASSWORD,
             'selected_packages': [],
             'target': {},
             'users': [],
-            'configuration': dict(DEFAULT_CONFIGURATION),
+            'configuration': dict(defaults.CONFIGURATION),
             'xfce4': False,
         }
         self._distro = None
@@ -419,7 +406,7 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def get_default_configuration(self, request):
-        request.ret(DEFAULT_CONFIGURATION)
+        request.ret(defaults.CONFIGURATION)
 
     @only_if_initialized
     @remote
@@ -548,7 +535,7 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def get_default_root_password(self, request):
-        request.ret(DEFAULT_ROOT_PASSWORD)
+        request.ret(defaults.ROOT_PASSWORD)
 
     @only_if_initialized
     @remote
