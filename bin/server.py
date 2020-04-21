@@ -247,8 +247,6 @@ class RPCHandler(RPCServer):
         else:
             firmware.save()
 
-        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
-
         LOGGER.debug('Finishing initialization')
 
         self.init_lock = False
@@ -299,21 +297,18 @@ class RPCHandler(RPCServer):
             'homedir': homedir,
             'shell': shell
         })
-        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         request.ret(READY)
 
     @only_if_initialized
     @remote
     def change_root_password(self, request, password):
         self.image['root_password'] = password
-        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         request.ret(READY)
 
     @only_if_initialized
     @remote
     def sync_configuration(self, request, image_configuration_params):
         self.image['configuration'].update(image_configuration_params)
-        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
         request.ret(READY)
 
     @only_if_initialized
