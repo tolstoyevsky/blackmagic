@@ -52,8 +52,6 @@ define('mongodb_host',
 define('mongodb_port',
        default=settings.MONGO['PORT'],
        help='')
-define('workspace',
-       default='/var/blackmagic/workspace')
 
 LOGGER = logging.getLogger('tornado.application')
 
@@ -99,10 +97,6 @@ METAS = {
 READY = 10
 BUSY = 12
 LOCKED = 13
-PREPARE_ENV = 14
-MARK_ESSENTIAL_PACKAGES_AS_INSTALLED = 15
-INSTALL_KEYRING_PACKAGE = 16
-UPDATE_INDICES = 17
 BUILD_FAILED = 18
 EMAIL_NOTIFICATIONS = 19
 EMAIL_NOTIFICATIONS_FAILED = 20
@@ -118,13 +112,6 @@ class DistroDoesNotExist(Exception):
     is not valid.
     """
     pass
-
-
-def get_keyring_package_name(distro):
-    if distro in METAS.keys():
-        return os.path.basename(METAS[distro][2])
-    else:
-        raise DistroDoesNotExist
 
 
 def get_os_name(distro):
@@ -172,7 +159,6 @@ class RPCHandler(RPCServer):
 
         self._arch = ''
         self._collection_name = ''
-        self._keyring = ''
         self._mirror = ''
         self._os = ''
         self._suite = ''
@@ -180,7 +166,6 @@ class RPCHandler(RPCServer):
 
         self.image = {
             'id': None,
-            'resolver_env': '',
             'root_password': defaults.ROOT_PASSWORD,
             'selected_packages': [],
             'target': {},
@@ -189,8 +174,6 @@ class RPCHandler(RPCServer):
         }
         self._distro = None
         self._target_device = None
-
-        self.inst_pattern = re.compile('Inst ([-\.\w]+)')
 
         self.user = None  # the one who builds an image
 
@@ -219,14 +202,6 @@ class RPCHandler(RPCServer):
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
 
-    def _remove_resolver_env(self):
-        if os.path.isdir(self.image['resolver_env']):
-            LOGGER.debug('Remove {}'.format(self.image['resolver_env']))
-            shutil.rmtree(self.image['resolver_env'])
-
-    def destroy(self):
-        self._remove_resolver_env()
-
     @remote
     def init(self, request, name, target_device_name, distro_name, build_type_id=1):
         if self.init_lock:
@@ -241,79 +216,20 @@ class RPCHandler(RPCServer):
         self._os = get_os_name(distro_name)
         self._arch = self._os.split('-')[2]
         self._suite = self._os.split('-')[1]
-        self._keyring = get_keyring_package_name(distro_name)
         self._mirror = get_mirror_address(distro_name)
         self._collection_name = self._os
         self._init_mongodb()
         self.collection = self.db[self._collection_name]
         self.packages_number = self.collection.find().count()
 
-        if self.image['resolver_env']:
-            self._remove_resolver_env()
-
         self.image['id'] = build_id = str(uuid.uuid4())
         self.image['_id'] = build_id
-        self.image['resolver_env'] = resolver_env = \
-            os.path.join(options.workspace, build_id)
 
         self.image['target'] = {
             'distro': distro_name,
             'device': target_device_name
         }
         self.image['build_type'] = build_type_id
-
-        LOGGER.debug('Creating hierarchy in {}'.format(resolver_env))
-        request.ret_and_continue(PREPARE_ENV)
-        # Such things like preparing resolver environment, marking essential
-        # packages as installed and installing debian-archive-keyring package
-        # don't take much time, so we let users know what's going on by adding
-        # small pauses.
-        yield gen.sleep(1)
-
-        hiera = [
-            '/etc/apt',
-            '/etc/apt/preferences.d',
-            '/var/cache/apt/archives/partial',
-            '/var/lib/apt/lists/partial',
-            '/var/lib/dpkg',
-        ]
-        for directory in hiera:
-            os.makedirs(resolver_env + directory)
-
-        request.ret_and_continue(MARK_ESSENTIAL_PACKAGES_AS_INSTALLED)
-        yield gen.sleep(1)
-
-        base_sytem = os.path.join(options.base_systems_path, self._os)
-        status_file = os.path.join(base_sytem, 'var/lib/dpkg/status')
-        shutil.copyfile(status_file, resolver_env + '/var/lib/dpkg/status')
-
-        section = 'main'
-        if (self._os == 'ubuntu-bionic-armhf' or self._os == 'ubuntu-bionic-arm64'):
-            section += ' universe'
-
-        with open(resolver_env + '/etc/apt/sources.list', 'w') as f:
-            f.write('deb [arch={}] {} {} {}'.format(self._arch, self._mirror,
-                                                      self._suite, section))
-
-        request.ret_and_continue(INSTALL_KEYRING_PACKAGE)
-        yield gen.sleep(1)
-
-        command_line = ['dpkg', '-x', '/tmp/' + self._keyring, resolver_env]
-        output = yield util.execute_async(command_line)
-        LOGGER.debug('dpkg: {}'.format(output))
-
-        LOGGER.debug('Executing apt-get update')
-        request.ret_and_continue(UPDATE_INDICES)
-
-        command_line = [
-            'apt-get', 'update', '-qq',
-            '-o', 'APT::Architecture=all',
-            '-o', 'APT::Architecture=' + self._arch,
-            '-o', 'Dir=' + resolver_env,
-            '-o', 'Dir::State::status=' + resolver_env +
-                  '/var/lib/dpkg/status'
-        ]
-        proc = subprocess.run(command_line)
 
         user = self._get_user()
         distro = self._get_distro(distro_name)
@@ -355,8 +271,6 @@ class RPCHandler(RPCServer):
                 yield gen.sleep(1)
 
             self.build_lock = False
-
-            self._remove_resolver_env()
 
             try:
                 ret_code = result.get()
@@ -467,49 +381,8 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     def resolve(self, request, packages_list):
-        self.image['selected_packages'] = packages_list
-        self.db.images.replace_one({'_id': self.image['id']}, self.image, True)
-        resolver_env = self.image['resolver_env']
-
-        packages_list_sort = sorted(packages_list)
-        packages_list_str = '-'.join(packages_list_sort)
-        os_name = self._os
-        key_cache = os_name + '-' + packages_list_str
-
-        command_line = [
-            'apt-get', 'install', '--no-act', '-qq',
-            '-o', 'APT::Architecture=all',
-            '-o', 'APT::Architecture=' + self._arch,
-            '-o', 'APT::Default-Release=' + self._suite,
-            '-o', 'Dir=' + resolver_env,
-            '-o', 'Dir::State::status=' + resolver_env +
-                  '/var/lib/dpkg/status'
-        ] + packages_list
-        
-        data = subprocess.Popen(command_line, stdout=subprocess.PIPE)
-        output, error = data.communicate()
-
-        if bool(error):
-            request.ret(BUILD_FAILED)
-        # The output of the above command line will look like the
-        # following set of lines:
-        # NOTE: This is only a simulation!
-        #       apt-get needs root privileges for real execution.
-        #       Keep also in mind that locking is deactivated,
-        #       so don't depend on the relevance to the real current situation!
-        # Inst libgdbm3 (1.8.3-13.1 Debian:8.4/stable [armhf])
-        # Inst libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
-        # Inst libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
-        # ...
-        # Conf libgdbm3 (1.8.3-13.1 Debian:8.4/stable [armhf])
-        # Conf libssl1.0.0 (1.0.1k-3+deb8u4 Debian:8.4/stable [armhf])
-        # Conf libxml2 (2.9.1+dfsg1-5+deb8u1 Debian:8.4/stable [armhf])
-        # ...
-        packages_to_be_installed = self.inst_pattern.findall(str(output))
-        dependencies = set(packages_to_be_installed) - set(packages_list)
-
-        # Python sets are not JSON serializable
-        request.ret(list(dependencies))
+        LOGGER.debug(f'Resolve dependencies for {packages_list}')
+        request.ret([])
 
 
 def main():
@@ -517,11 +390,6 @@ def main():
     if not os.path.isdir(options.base_systems_path):
         LOGGER.error('The directory specified via the base_systems_path '
                      'parameter does not exist')
-        exit(1)
-
-    if not os.path.isdir(options.workspace):
-        LOGGER.error('The directory specified via the workspace parameter '
-                     'does not exist')
         exit(1)
 
     django.setup()
@@ -532,12 +400,6 @@ def main():
         with open(passwd_file, encoding='utf-8') as f:
             for line in f:
                 RPCHandler.users_list[v[0]].append(line.split(':'))
-
-        keyring = v[2]
-        LOGGER.info('Downloading {}...'.format(keyring))
-        response = urllib.request.urlopen(keyring)
-        with open('/tmp/' + os.path.basename(keyring), 'b+w') as f:
-            f.write(response.read())
 
     for v in METAS.values():
         base_sytem = os.path.join(options.base_systems_path, v[0])
