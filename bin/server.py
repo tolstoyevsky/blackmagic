@@ -25,6 +25,7 @@ from tornado import gen
 from tornado.options import define, options
 from tornado.process import Subprocess
 
+from blackmagic.decorators import only_if_initialized
 from firmwares.models import Firmware, TargetDevice, Distro, UnknownBuildTypeId
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
@@ -109,7 +110,6 @@ METAS = {
 }
 
 READY = 10
-NOT_INITIALIZED = 11
 BUSY = 12
 LOCKED = 13
 PREPARE_ENV = 14
@@ -159,24 +159,6 @@ def is_paid(distro, device):
         return False
     else:
         return True
-
-
-def only_if_initialized(func):
-    """Executes a remote procedure only if the RPC server is initialized. Every
-    single remote procedure has to be decorated with only_if_initialized. The
-    exceptions are:
-    * init
-    * get_built_images
-    * get_target_devices_list"""
-
-    @wraps(func)
-    def wrapper(self, request, *args, **kwargs):
-        if not self.global_lock:
-            return func(self, request, *args, **kwargs)
-        else:
-            request.ret(NOT_INITIALIZED)
-
-    return wrapper
 
 
 class Application(tornado.web.Application):
