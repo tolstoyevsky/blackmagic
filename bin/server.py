@@ -14,10 +14,8 @@ from pathlib import Path
 import django
 import tornado.web
 import tornado.options
-from celery.result import AsyncResult
 from debian import deb822
 from django.conf import settings
-from dominion.tasks import build
 from pymongo import MongoClient
 from shirow import util
 from json import JSONDecodeError
@@ -97,7 +95,6 @@ METAS = {
 READY = 10
 BUSY = 12
 LOCKED = 13
-BUILD_FAILED = 18
 EMAIL_NOTIFICATIONS = 19
 EMAIL_NOTIFICATIONS_FAILED = 20
 OVERLOADED = 21
@@ -260,27 +257,7 @@ class RPCHandler(RPCServer):
     @remote
     def build(self, request):
         if not self.build_lock:
-            self.build_lock = True
-
-            ret_code = 0
-
-            result = AsyncResult(build.delay(self.user_id, self.image))
-            while not result.ready():
-                yield gen.sleep(1)
-
-            self.build_lock = False
-
-            try:
-                ret_code = result.get()
-            except Exception:
-                LOGGER.exception('An exception was raised while building '
-                                 'image')
-                request.ret(BUILD_FAILED)
-
-            if ret_code == 0:
-                request.ret(READY)
-            else:
-                request.ret(BUILD_FAILED)
+            LOGGER.debug('Start building the image')
 
         request.ret(LOCKED)
 
