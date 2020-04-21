@@ -410,109 +410,8 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    def get_email_notifications(self, request):
-        user = self._get_user()
-        if user:
-            request.ret(user.userprofile.email_notifications)
-        else:
-            request.ret(EMAIL_NOTIFICATIONS_FAILED)
-
-    @only_if_initialized
-    @remote
-    def enable_email_notifications(self, request):
-        user = self._get_user()
-        if user:
-            user.userprofile.email_notifications = True
-            user.save()
-            request.ret(EMAIL_NOTIFICATIONS)
-        else:
-            request.ret(EMAIL_NOTIFICATIONS_FAILED)
-
-    @only_if_initialized
-    @remote
-    def disable_email_notifications(self, request):
-        user = self._get_user()
-        if user:
-            user.userprofile.email_notifications = False
-            user.save()
-            request.ret(EMAIL_NOTIFICATIONS)
-        else:
-            request.ret(EMAIL_NOTIFICATIONS_FAILED)
-
-    @only_if_initialized
-    @remote
     def get_base_packages_list(self, request):
         request.ret(self.base_packages_list[self._os])
-
-    @remote
-    def get_built_images(self, request):
-        self._init_mongodb()
-        user = User.objects.get(id=self.user_id)
-        firmwares = Firmware.objects.filter(user=user) \
-                                    .exclude(status=Firmware.INITIALIZED) \
-                                    .order_by('-started_at')
-        result = []
-        for firmware in firmwares:
-            if firmware.distro is None or firmware.targetdevice is None:
-                continue
-            f = {'name': firmware.name}
-            f['status'] = firmware.status
-            f['delete'] = firmware.status in (Firmware.DONE, Firmware.FAILED)
-            f['download'] = firmware.status == Firmware.DONE
-            f['distro'] = {'full_name': firmware.distro.full_name}
-            f['targetdevice'] = {'full_name': firmware.targetdevice.full_name}
-            if firmware.targetdevice.short_name == 'rpi-3-b' and firmware.distro.short_name == 'ubuntu-bionic-arm64':
-                f['emulate'] = True
-            else: 
-                f['emulate'] = False
-            if firmware.build_type is None:
-                f['buildtype'] = {'full_name': 'Classic image'}
-            else:
-                f['buildtype'] = {'full_name': firmware.build_type.full_name}
-            f['started_at'] = firmware.started_at.strftime('%c')
-            f['notes'] = firmware.notes
-            images_date = self.db.images.find_one({"_id": firmware.name})
-            emulate_button = images_date.get('xfce4', False)
-            if emulate_button:
-                f['emulate'] = False
-            f['packages'] = images_date['selected_packages']
-            f['configuration'] = images_date['configuration']
-            if 'WPA_PSK' in f['configuration'] and f['configuration']['WPA_PSK']:
-                f['configuration']['WPA_PSK'] = '********'
-            result.append(f)
-
-        request.ret(result)
-
-    @remote
-    def delete_firmware(self, request, name):
-        user = User.objects.get(id=self.user_id)
-        firmwares = Firmware.objects.filter(user=user, name=name)
-        if firmwares:
-            for firmware in firmwares:
-                filename = os.path.join(options.dominion_workspace,
-                                        name + '.{}'.format(firmware.format))
-                firmware.delete()
-                if Path(filename).is_file():
-                    os.remove(filename)
-                else:
-                    LOGGER.error('Failed to remove {}: '
-                                 'file does not exist'.format(filename))
-
-            request.ret(FIRMWARE_WAS_REMOVED)
-        else:
-            request.ret(NOT_FOUND)
-
-    @remote
-    def save_firmware_notes(self, request, name, notes):
-        user = User.objects.get(id=self.user_id)
-        firmwares = Firmware.objects.filter(user=user, name=name)
-        if firmwares:
-            for firmware in firmwares:
-                firmware.notes = notes
-                firmware.save()
-            request.ret(READY)
-        else:
-            request.ret(NOT_FOUND)
 
     @only_if_initialized
     @remote
@@ -541,11 +440,6 @@ class RPCHandler(RPCServer):
     @remote
     def get_shells_list(self, request):
         request.ret(['/bin/sh', '/bin/dash', '/bin/bash', '/bin/rbash'])
-
-    @remote
-    def get_target_devices_list(self, request):
-        target_devices = TargetDevice.objects.all()
-        request.ret([device.full_name for device in target_devices])
 
     @only_if_initialized
     @remote
