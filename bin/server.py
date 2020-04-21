@@ -157,7 +157,7 @@ class RPCHandler(RPCServer):
         self.db = client[options.db_name]
 
     @remote
-    def init(self, request, name, target_device_name, distro_name, build_type_id=1):
+    async def init(self, request, name, target_device_name, distro_name, build_type_id=1):
         if self.init_lock:
             request.ret(LOCKED)
 
@@ -195,7 +195,7 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    def build(self, request):
+    async def build(self, request):
         if not self.build_lock:
             LOGGER.debug('Start building the image')
 
@@ -203,7 +203,7 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    def add_user(self, request, username, password, uid, gid, comment, homedir,
+    async def add_user(self, request, username, password, uid, gid, comment, homedir,
                  shell):
         self.image['users'].append({
             'username': username,
@@ -218,29 +218,29 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    def change_root_password(self, request, password):
+    async def change_root_password(self, request, password):
         self.image['root_password'] = password
         request.ret(READY)
 
     @only_if_initialized
     @remote
-    def sync_configuration(self, request, image_configuration_params):
+    async def sync_configuration(self, request, image_configuration_params):
         self.image['configuration'].update(image_configuration_params)
         request.ret(READY)
 
     @only_if_initialized
     @remote
-    def get_default_configuration(self, request):
+    async def get_default_configuration(self, request):
         request.ret(defaults.CONFIGURATION)
 
     @only_if_initialized
     @remote
-    def get_base_packages_list(self, request):
+    async def get_base_packages_list(self, request):
         request.ret(self.base_packages_list[self._os])
 
     @only_if_initialized
     @remote
-    def get_packages_list(self, request, page_number, per_page):
+    async def get_packages_list(self, request, page_number, per_page):
         if page_number > 0:
             start_position = (page_number - 1) * per_page
         else:
@@ -258,27 +258,27 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    def get_default_root_password(self, request):
+    async def get_default_root_password(self, request):
         request.ret(defaults.ROOT_PASSWORD)
 
     @only_if_initialized
     @remote
-    def get_shells_list(self, request):
+    async def get_shells_list(self, request):
         request.ret(['/bin/sh', '/bin/dash', '/bin/bash', '/bin/rbash'])
 
     @only_if_initialized
     @remote
-    def get_packages_number(self, request):
+    async def get_packages_number(self, request):
         request.ret(self.packages_number)
 
     @only_if_initialized
     @remote
-    def get_users_list(self, request):
+    async def get_users_list(self, request):
         request.ret(self.users_list[self._os])
 
     @only_if_initialized
     @remote
-    def search(self, request, query):
+    async def search(self, request, query):
         packages_list = []
         if query:
             matches = self.db.command('text', self._collection_name,
@@ -292,7 +292,7 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    def resolve(self, request, packages_list):
+    async def resolve(self, request, packages_list):
         LOGGER.debug(f'Resolve dependencies for {packages_list}')
         request.ret([])
 
