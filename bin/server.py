@@ -4,11 +4,9 @@ import os
 import os.path
 import uuid
 
-import django
 import tornado.web
 import tornado.options
 from debian import deb822
-from django.conf import settings
 from pymongo import MongoClient
 from tornado.options import define, options
 
@@ -22,7 +20,7 @@ define('base_systems_path',
        help='The path to the directory which contains chroot environments '
             'which, in turn, contain the Debian base system')
 define('db_name',
-       default=settings.MONGO['DATABASE'],
+       default='cusdeb',
        help='')
 define('dominion_workspace',
        default='/var/dominion/workspace/',
@@ -32,10 +30,10 @@ define('max_builds_number',
        type=int,
        help='Maximum allowed number of builds at the same time.')
 define('mongodb_host',
-       default=settings.MONGO['HOST'],
+       default='',
        help='')
 define('mongodb_port',
-       default=settings.MONGO['PORT'],
+       default='33018',
        help='')
 
 LOGGER = logging.getLogger('tornado.application')
@@ -153,7 +151,7 @@ class RPCHandler(RPCServer):
         self.user = None  # the one who builds an image
 
     def _init_mongodb(self):
-        client = MongoClient(options.mongodb_host, options.mongodb_port)
+        client = MongoClient(options.mongodb_host, int(options.mongodb_port))
         self.db = client[options.db_name]
 
     @remote
@@ -303,8 +301,6 @@ def main():
         LOGGER.error('The directory specified via the base_systems_path '
                      'parameter does not exist')
         exit(1)
-
-    django.setup()
 
     for v in METAS.values():
         passwd_file = os.path.join(options.base_systems_path, v[0], 'etc/passwd')
