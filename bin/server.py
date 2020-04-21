@@ -125,13 +125,6 @@ def get_mirror_address(distro):
         raise DistroDoesNotExist
 
 
-def is_paid(distro, device):
-    if device == 'Orange Pi Zero' and distro == 'Debian 10 "Buster" (32-bit)':
-        return False
-    else:
-        return True
-
-
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
@@ -159,7 +152,6 @@ class RPCHandler(RPCServer):
         self._mirror = ''
         self._os = ''
         self._suite = ''
-        self._paid = False
 
         self.image = {
             'id': None,
@@ -209,7 +201,6 @@ class RPCHandler(RPCServer):
 
         self.init_lock = True
 
-        self._paid = is_paid(distro_name, target_device_name)
         self._os = get_os_name(distro_name)
         self._arch = self._os.split('-')[2]
         self._suite = self._os.split('-')[1]
@@ -233,7 +224,6 @@ class RPCHandler(RPCServer):
         target_device = self._get_target_device(target_device_name)
         firmware = Firmware(name=build_id, user=user,
                             status=Firmware.INITIALIZED,
-                            pro_only=self._paid,
                             distro=distro,
                             targetdevice=target_device)
         try:
