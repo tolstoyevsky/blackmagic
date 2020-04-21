@@ -25,7 +25,6 @@ from tornado.process import Subprocess
 
 from blackmagic import defaults
 from blackmagic.decorators import only_if_initialized
-from firmwares.models import Firmware, TargetDevice, Distro, UnknownBuildTypeId
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
 from users.models import User
@@ -101,7 +100,6 @@ OVERLOADED = 21
 FIRMWARE_WAS_REMOVED = 21
 NOT_FOUND = 22
 MAINTENANCE_MODE = 23
-UNKNOWN_BUID_TYPE = 24
 
 
 class DistroDoesNotExist(Exception):
@@ -173,20 +171,6 @@ class RPCHandler(RPCServer):
         else:
             return self.user
 
-    def _get_distro(self, distro_name):
-        if not self._distro:
-            self._distro = Distro.objects.get(full_name=distro_name)
-            return self._distro
-        else:
-            return self._distro
-
-    def _get_target_device(self, target_device_name):
-        if not self._target_device:
-            self._target_device = TargetDevice.objects.get(full_name=target_device_name)
-            return self._target_device
-        else:
-            return self._target_device
-
     def _init_mongodb(self):
         client = MongoClient(options.mongodb_host, options.mongodb_port)
         self.db = client[options.db_name]
@@ -220,19 +204,6 @@ class RPCHandler(RPCServer):
         self.image['build_type'] = build_type_id
 
         user = self._get_user()
-        distro = self._get_distro(distro_name)
-        target_device = self._get_target_device(target_device_name)
-        firmware = Firmware(name=build_id, user=user,
-                            status=Firmware.INITIALIZED,
-                            distro=distro,
-                            targetdevice=target_device)
-        try:
-            firmware.set_build_type(build_type_id)
-        except UnknownBuildTypeId as e:
-            LOGGER.error(str(e))
-            request.ret(UNKNOWN_BUID_TYPE)
-        else:
-            firmware.save()
 
         LOGGER.debug('Finishing initialization')
 
