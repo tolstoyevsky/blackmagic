@@ -96,13 +96,6 @@ def get_os_name(distro):
         raise DistroDoesNotExist
 
 
-def get_mirror_address(distro):
-    if distro in METAS.keys():
-        return METAS[distro][1]
-    else:
-        raise DistroDoesNotExist
-
-
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
@@ -127,7 +120,6 @@ class RPCHandler(RPCServer):
 
         self._arch = ''
         self._collection_name = ''
-        self._mirror = ''
         self._os = ''
         self._suite = ''
 
@@ -161,7 +153,6 @@ class RPCHandler(RPCServer):
         self._os = get_os_name(distro_name)
         self._arch = self._os.split('-')[2]
         self._suite = self._os.split('-')[1]
-        self._mirror = get_mirror_address(distro_name)
         self._collection_name = self._os
         self._init_mongodb()
         self.collection = self.db[self._collection_name]
