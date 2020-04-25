@@ -38,45 +38,6 @@ define('mongodb_port',
 
 LOGGER = logging.getLogger('tornado.application')
 
-METAS = {
-    'Raspbian 10 "Buster" (32-bit)': [
-        'raspbian-buster-armhf',
-        'http://archive.raspbian.org/raspbian',
-        ('http://archive.raspbian.org/raspbian/pool/main/r/raspbian-archive-'
-         'keyring/raspbian-archive-keyring_20120528.2_all.deb'),
-    ],
-    'Ubuntu 16.04 "Xenial Xerus" (32-bit)': [
-        'ubuntu-xenial-armhf',
-        'http://ports.ubuntu.com/ubuntu-ports/',
-        ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
-         'ubuntu-keyring_2012.05.19_all.deb'),
-    ],
-    'Ubuntu 18.04 "Bionic Beaver" (32-bit)': [
-        'ubuntu-bionic-armhf',
-        'http://ports.ubuntu.com/ubuntu-ports/',
-        ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
-         'ubuntu-keyring_2018.02.28_all.deb'),
-    ],
-    'Ubuntu 18.04 "Bionic Beaver" (64-bit)': [
-        'ubuntu-bionic-arm64',
-        'http://ports.ubuntu.com/ubuntu-ports/',
-        ('http://ports.ubuntu.com/ubuntu-ports/pool/main/u/ubuntu-keyring/'
-         'ubuntu-keyring_2018.02.28_all.deb'),
-    ],
-    'Devuan 1 "Jessie" (32-bit)': [
-        'devuan-jessie-armhf',
-        'http://auto.mirror.devuan.org/merged/',
-        ('http://auto.mirror.devuan.org/merged/pool/DEVUAN/main/d/devuan-keyring/'
-         'devuan-keyring_2017.10.03_all.deb'),
-    ],
-    'Debian 10 "Buster" (32-bit)': [
-        'debian-buster-armhf',
-        'http://deb.debian.org/debian/',
-        ('http://deb.debian.org/debian/pool/main/d/debian-keyring/'
-         'debian-keyring_2019.02.25_all.deb'),
-    ],
-}
-
 READY = 10
 BUSY = 12
 LOCKED = 13
@@ -87,13 +48,6 @@ class DistroDoesNotExist(Exception):
     is not valid.
     """
     pass
-
-
-def get_os_name(distro):
-    if distro in METAS.keys():
-        return METAS[distro][0]
-    else:
-        raise DistroDoesNotExist
 
 
 class Application(tornado.web.Application):
@@ -107,9 +61,6 @@ class Application(tornado.web.Application):
 class RPCHandler(RPCServer):
     base_packages_list = {}
     users_list = {}
-    for v in METAS.values():
-        base_packages_list[v[0]] = []
-        users_list[v[0]] = []
 
     def __init__(self, application, request, **kwargs):
         RPCServer.__init__(self, application, request, **kwargs)
@@ -118,10 +69,7 @@ class RPCHandler(RPCServer):
         self.global_lock = True
         self.init_lock = False
 
-        self._arch = ''
         self._collection_name = ''
-        self._os = ''
-        self._suite = ''
 
         self.image = {
             'id': None,
@@ -150,10 +98,7 @@ class RPCHandler(RPCServer):
 
         self.init_lock = True
 
-        self._os = get_os_name(distro_name)
-        self._arch = self._os.split('-')[2]
-        self._suite = self._os.split('-')[1]
-        self._collection_name = self._os
+        self._collection_name = distro_name
         self._init_mongodb()
         self.collection = self.db[self._collection_name]
         self.packages_number = self.collection.find().count()
@@ -219,7 +164,7 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     async def get_base_packages_list(self, request):
-        request.ret(self.base_packages_list[self._os])
+        request.ret(self.base_packages_list[self._collection_name])
 
     @only_if_initialized
     @remote
@@ -257,7 +202,7 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     async def get_users_list(self, request):
-        request.ret(self.users_list[self._os])
+        request.ret(self.users_list[self._collection_name])
 
     @only_if_initialized
     @remote
@@ -287,19 +232,20 @@ def main():
                      'parameter does not exist')
         exit(1)
 
-    for v in METAS.values():
-        passwd_file = os.path.join(options.base_systems_path, v[0], 'etc/passwd')
+    for item_name in os.listdir(options.base_systems_path):
+        item_path = os.path.join(options.base_systems_path, item_name)
+        if os.path.isdir(item_path):
+            passwd_file = os.path.join(item_path, 'etc/passwd')
+            with open(passwd_file, encoding='utf-8') as infile:
+                RPCHandler.users_list[item_name] = []
+                for line in infile:
+                    RPCHandler.users_list[item_name].append(line.split(':'))
 
-        with open(passwd_file, encoding='utf-8') as f:
-            for line in f:
-                RPCHandler.users_list[v[0]].append(line.split(':'))
-
-    for v in METAS.values():
-        base_sytem = os.path.join(options.base_systems_path, v[0])
-        status_file = os.path.join(base_sytem, 'var/lib/dpkg/status')
-        with open(status_file, encoding='utf-8') as f:
-            for package in deb822.Packages.iter_paragraphs(f):
-                RPCHandler.base_packages_list[v[0]].append(package['package'])
+            status_file = os.path.join(item_path, 'var/lib/dpkg/status')
+            with open(status_file, encoding='utf-8') as infile:
+                RPCHandler.base_packages_list[item_name] = []
+                for package in deb822.Packages.iter_paragraphs(infile):
+                    RPCHandler.base_packages_list[item_name].append(package['package'])
 
     LOGGER.info('RPC server is ready!')
 
