@@ -107,6 +107,7 @@ class RPCHandler(RPCServer):
                 '$in': self.base_packages_list[self._collection_name],
             },
         }
+        self.base_packages_number = self.collection.find(self.base_packages_query).count()
 
         self.image['id'] = build_id = str(uuid.uuid4())
         self.image['_id'] = build_id
@@ -214,6 +215,11 @@ class RPCHandler(RPCServer):
     @remote
     async def get_packages_number(self, request):
         request.ret(self.packages_number)
+
+    @only_if_initialized
+    @remote
+    async def get_base_packages_number(self, request):
+        request.ret(self.base_packages_number)
 
     @only_if_initialized
     @remote
