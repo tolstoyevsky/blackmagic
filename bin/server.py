@@ -102,6 +102,11 @@ class RPCHandler(RPCServer):
         self._init_mongodb()
         self.collection = self.db[self._collection_name]
         self.packages_number = self.collection.find().count()
+        self.base_packages_query = {
+            'package': {
+                '$in': self.base_packages_list[self._collection_name],
+            },
+        }
 
         self.image['id'] = build_id = str(uuid.uuid4())
         self.image['_id'] = build_id
@@ -163,11 +168,6 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    async def get_base_packages_list(self, request):
-        request.ret(self.base_packages_list[self._collection_name])
-
-    @only_if_initialized
-    @remote
     async def get_packages_list(self, request, page_number, per_page):
         if page_number > 0:
             start_position = (page_number - 1) * per_page
@@ -183,6 +183,22 @@ class RPCHandler(RPCServer):
             packages_list.append(document)
 
         request.ret(packages_list)
+
+    @only_if_initialized
+    @remote
+    async def get_base_packages_list(self, request, page_number, per_page):
+        start_position = (page_number - 1) * per_page if page_number > 0 else 0
+
+        collection = self.collection
+        base_packages_list = []
+        for document in collection.find(
+                self.base_packages_query
+        ).skip(start_position).limit(per_page):
+            # Originally _id is an ObjectId instance and it's not JSON serializable
+            document['_id'] = str(document['_id'])
+            base_packages_list.append(document)
+
+        request.ret(base_packages_list)
 
     @only_if_initialized
     @remote
