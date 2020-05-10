@@ -181,6 +181,10 @@ class RPCHandler(RPCServer):
             # Originally _id is an ObjectId instance and it's not JSON
             # serializable
             document['_id'] = str(document['_id'])
+
+            if document['package'] in self.base_packages_list[self._collection_name]:
+                document['type'] = 'base'
+
             packages_list.append(document)
 
         request.ret(packages_list)
