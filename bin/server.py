@@ -184,6 +184,8 @@ class RPCHandler(RPCServer):
 
             if document['package'] in self.base_packages_list[self._collection_name]:
                 document['type'] = 'base'
+            if document['package'] in self.image['selected_packages']:
+                document['type'] = 'selected'
 
             packages_list.append(document)
 
