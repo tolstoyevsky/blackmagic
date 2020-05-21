@@ -209,6 +209,24 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
+    async def get_selected_packages_list(self, request, page_number, per_page):
+        start_position = (page_number - 1) * per_page if page_number > 0 else 0
+
+        collection = self.collection
+        selected_packages_list = []
+        for document in collection.find({
+            'package': {
+                '$in': self.image['selected_packages'],
+            }
+        }).skip(start_position).limit(per_page):
+            # Originally _id is an ObjectId instance and it's not JSON serializable
+            document['_id'] = str(document['_id'])
+            selected_packages_list.append(document)
+
+        request.ret(selected_packages_list)
+
+    @only_if_initialized
+    @remote
     async def get_default_root_password(self, request):
         request.ret(defaults.ROOT_PASSWORD)
 
@@ -226,6 +244,16 @@ class RPCHandler(RPCServer):
     @remote
     async def get_base_packages_number(self, request):
         request.ret(self.base_packages_number)
+
+    @only_if_initialized
+    @remote
+    async def get_selected_packages_number(self, request):
+        selected_packages_count = self.collection.find({
+            'package': {
+                '$in': self.image['selected_packages'],
+            }
+        }).count()
+        request.ret(selected_packages_count)
 
     @only_if_initialized
     @remote
