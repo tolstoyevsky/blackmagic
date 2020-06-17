@@ -583,6 +583,14 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
+    def sanitize_packages(self, request, packages_to_add):
+        collection = self.collection
+        # prevent Pieman to fail when encounter an unknown package name
+        packages_names = collection.find({'package':{'$in':packages_to_add}}).distinct('package')
+        request.ret(packages_names)
+
+    @only_if_initialized
+    @remote
     def get_default_root_password(self, request):
         request.ret(DEFAULT_ROOT_PASSWORD)
 
