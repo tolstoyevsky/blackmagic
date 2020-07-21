@@ -293,17 +293,21 @@ def main():
     for item_name in os.listdir(options.base_systems_path):
         item_path = os.path.join(options.base_systems_path, item_name)
         if os.path.isdir(item_path):
+            try:
+                status_file = os.path.join(item_path, 'var/lib/dpkg/status')
+                with open(status_file, encoding='utf-8') as infile:
+                    RPCHandler.base_packages_list[item_name] = []
+                    for package in deb822.Packages.iter_paragraphs(infile):
+                        RPCHandler.base_packages_list[item_name].append(package['package'])
+            except FileNotFoundError:
+                LOGGER.info(f'{item_name} is not a Debian-based system')
+                continue
+
             passwd_file = os.path.join(item_path, 'etc/passwd')
             with open(passwd_file, encoding='utf-8') as infile:
                 RPCHandler.users_list[item_name] = []
                 for line in infile:
                     RPCHandler.users_list[item_name].append(line.split(':'))
-
-            status_file = os.path.join(item_path, 'var/lib/dpkg/status')
-            with open(status_file, encoding='utf-8') as infile:
-                RPCHandler.base_packages_list[item_name] = []
-                for package in deb822.Packages.iter_paragraphs(infile):
-                    RPCHandler.base_packages_list[item_name].append(package['package'])
 
     LOGGER.info('RPC server is ready!')
 
