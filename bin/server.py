@@ -248,6 +248,12 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
+    async def get_search_packages_number(self, request, query):
+        search_packages_count = self.collection.find({'package': {'$regex': query}}).count()
+        request.ret(search_packages_count)
+
+    @only_if_initialized
+    @remote
     async def get_selected_packages_number(self, request):
         selected_packages_count = self.collection.find({
             'package': {
@@ -263,15 +269,22 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    async def search(self, request, query):
+    async def search(self, request, query, page_number, per_page):
+        start_position = (page_number - 1) * per_page if page_number > 0 else 0
+
         packages_list = []
         if query:
-            matches = self.db.command('text', self._collection_name,
-                                      search=query)
-            if matches['results']:
-                for document in matches['results']:
-                    document['obj'].pop('_id')
-                    packages_list.append(document['obj'])
+            for document in self.collection.find({
+                'package': {
+                    '$regex': query,
+                }
+            }).skip(start_position).limit(per_page):
+
+                document.pop('_id')
+                if document['package'] in self.image['selected_packages']:
+                    document['type'] = 'selected'
+
+                packages_list.append(document)
 
         request.ret(packages_list)
 
