@@ -55,7 +55,7 @@ class Application(tornado.web.Application):
         handlers = [
             (r'/rpc/token/' + TOKEN_PATTERN, RPCHandler),
         ]
-        tornado.web.Application.__init__(self, handlers)
+        super().__init__(handlers)
 
 
 class RPCHandler(RPCServer):
@@ -63,7 +63,7 @@ class RPCHandler(RPCServer):
     users_list = {}
 
     def __init__(self, application, request, **kwargs):
-        RPCServer.__init__(self, application, request, **kwargs)
+        super().__init__(application, request, **kwargs)
 
         self.build_lock = False
         self.global_lock = True
