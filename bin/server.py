@@ -44,10 +44,7 @@ LOCKED = 13
 
 
 class DistroDoesNotExist(Exception):
-    """Exception raised by the get_os_name function if the specified suite
-    is not valid.
-    """
-    pass
+    """Exception raised by the get_os_name function if the specified suite is not valid. """
 
 
 class Application(tornado.web.Application):
@@ -137,8 +134,7 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    async def add_user(self, request, username, password, uid, gid, comment, homedir,
-                 shell):
+    async def add_user(self, request, username, password, uid, gid, comment, homedir, shell):
         self.image['users'].append({
             'username': username,
             'password': password,
@@ -178,8 +174,7 @@ class RPCHandler(RPCServer):
         collection = self.collection
         packages_list = []
         for document in collection.find().skip(start_position).limit(per_page):
-            # Originally _id is an ObjectId instance and it's not JSON
-            # serializable
+            # Originally _id is an ObjectId instance and it's not JSON serializable
             document['_id'] = str(document['_id'])
 
             if document['package'] in self.base_packages_list[self._collection_name]:
@@ -265,8 +260,7 @@ class RPCHandler(RPCServer):
     async def search(self, request, query):
         packages_list = []
         if query:
-            matches = self.db.command('text', self._collection_name,
-                                      search=query)
+            matches = self.db.command('text', self._collection_name, search=query)
             if matches['results']:
                 for document in matches['results']:
                     document['obj'].pop('_id')
@@ -285,8 +279,7 @@ class RPCHandler(RPCServer):
 def main():
     tornado.options.parse_command_line()
     if not os.path.isdir(options.base_systems_path):
-        LOGGER.error('The directory specified via the base_systems_path '
-                     'parameter does not exist')
+        LOGGER.error('The directory specified via the base_systems_path parameter does not exist')
         exit(1)
 
     for item_name in os.listdir(options.base_systems_path):
