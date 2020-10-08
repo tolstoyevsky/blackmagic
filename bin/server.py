@@ -74,7 +74,6 @@ class RPCHandler(RPCServer):
 
         self._base_packages_number = 0
         self._base_packages_query = {}
-        self._packages_number = 0
         self._selected_packages = []
 
         self._user = None  # the one who builds an image
@@ -94,7 +93,6 @@ class RPCHandler(RPCServer):
         self._collection_name = distro_name
         self._collection = self._db[self._collection_name]
 
-        self._packages_number = self._collection.find().count()
         self._base_packages_query = {
             'package': {
                 '$in': self.base_packages_list[self._collection_name],
@@ -140,15 +138,20 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    async def get_packages_list(self, request, page_number, per_page):
+    async def get_packages_list(self, request, page_number, per_page, search_token=None):
         if page_number > 0:
             start_position = (page_number - 1) * per_page
         else:
             start_position = 0
 
-        collection = self._collection
+        find_query = {}
+        if search_token:
+            find_query.update({
+                'package': {'$regex': search_token},
+            })
+
         packages_list = []
-        for document in collection.find().skip(start_position).limit(per_page):
+        for document in self._collection.find(find_query).skip(start_position).limit(per_page):
             # Originally _id is an ObjectId instance and it's not JSON serializable
             document['_id'] = str(document['_id'])
 
@@ -207,8 +210,15 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    async def get_packages_number(self, request):
-        request.ret(self._packages_number)
+    async def get_packages_number(self, request, search_token=None):
+        find_query = {}
+        if search_token:
+            find_query.update({
+                'package': {'$regex': search_token}
+            })
+
+        packages_number = self._collection.find(find_query).count()
+        request.ret(packages_number)
 
     @only_if_initialized
     @remote
