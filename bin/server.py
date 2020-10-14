@@ -6,11 +6,12 @@ import uuid
 
 import tornado.web
 import tornado.options
+from cdtz import set_time_zone
 from debian import deb822
 from pymongo import MongoClient
 from tornado.options import define, options
 
-from blackmagic import defaults
+from blackmagic import defaults, docker
 from blackmagic.decorators import only_if_initialized
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
@@ -277,6 +278,8 @@ class RPCHandler(RPCServer):
 
 
 def main():
+    set_time_zone(docker.TIME_ZONE)
+
     tornado.options.parse_command_line()
     if not os.path.isdir(options.base_systems_path):
         LOGGER.error('The directory specified via the base_systems_path parameter does not exist')
