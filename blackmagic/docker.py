@@ -22,3 +22,5 @@ INSTALLED_APPS = [
 
 # Do not run anything if SECRET_KEY is not set.
 SECRET_KEY = os.environ['SECRET_KEY']
+
+TIME_ZONE = os.getenv('TIME_ZONE', 'Europe/Moscow')
