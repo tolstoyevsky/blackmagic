@@ -65,16 +65,10 @@ class RPCHandler(RPCServer):
 
         self._collection_name = ''
 
-        self.image = {
-            'id': None,
-            'root_password': defaults.ROOT_PASSWORD,
-            'selected_packages': [],
-            'target': {},
-            'users': [],
-            'configuration': dict(defaults.CONFIGURATION),
-        }
         self._distro = None
         self._target_device = None
+
+        self._selected_packages = []
 
         self.user = None  # the one who builds an image
 
@@ -99,15 +93,7 @@ class RPCHandler(RPCServer):
             },
         }
         self.base_packages_number = self.collection.find(self.base_packages_query).count()
-
-        self.image['id'] = build_id = str(uuid.uuid4())
-        self.image['_id'] = build_id
-
-        self.image['target'] = {
-            'distro': distro_name,
-            'device': target_device_name
-        }
-        self.image['build_type'] = build_type_id
+        build_id = str(uuid.uuid4())
 
         LOGGER.debug('Finishing initialization')
 
@@ -128,27 +114,16 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     async def add_user(self, request, username, password, uid, gid, comment, homedir, shell):
-        self.image['users'].append({
-            'username': username,
-            'password': password,
-            'uid': uid,
-            'gid': gid,
-            'comment': comment,
-            'homedir': homedir,
-            'shell': shell
-        })
         request.ret(READY)
 
     @only_if_initialized
     @remote
     async def change_root_password(self, request, password):
-        self.image['root_password'] = password
         request.ret(READY)
 
     @only_if_initialized
     @remote
     async def sync_configuration(self, request, image_configuration_params):
-        self.image['configuration'].update(image_configuration_params)
         request.ret(READY)
 
     @only_if_initialized
@@ -172,7 +147,7 @@ class RPCHandler(RPCServer):
 
             if document['package'] in self.base_packages_list[self._collection_name]:
                 document['type'] = 'base'
-            if document['package'] in self.image['selected_packages']:
+            if document['package'] in self._selected_packages:
                 document['type'] = 'selected'
 
             packages_list.append(document)
@@ -204,7 +179,7 @@ class RPCHandler(RPCServer):
         selected_packages_list = []
         for document in collection.find({
             'package': {
-                '$in': self.image['selected_packages'],
+                '$in': self._selected_packages,
             }
         }).skip(start_position).limit(per_page):
             # Originally _id is an ObjectId instance and it's not JSON serializable
@@ -238,7 +213,7 @@ class RPCHandler(RPCServer):
     async def get_selected_packages_number(self, request):
         selected_packages_count = self.collection.find({
             'package': {
-                '$in': self.image['selected_packages'],
+                '$in': self._selected_packages,
             }
         }).count()
         request.ret(selected_packages_count)
@@ -265,7 +240,7 @@ class RPCHandler(RPCServer):
     @remote
     async def resolve(self, request, packages_list):
         LOGGER.debug(f'Resolve dependencies for {packages_list}')
-        self.image['selected_packages'] = packages_list
+        self._selected_packages = packages_list
         request.ret([])
 
 
