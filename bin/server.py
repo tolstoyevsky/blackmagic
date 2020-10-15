@@ -90,9 +90,10 @@ class RPCHandler(RPCServer):
 
         self._init_lock = True
 
-        self._collection_name = distro_name
         self._init_mongodb()
+        self._collection_name = distro_name
         self._collection = self._db[self._collection_name]
+
         self._packages_number = self._collection.find().count()
         self._base_packages_query = {
             'package': {
