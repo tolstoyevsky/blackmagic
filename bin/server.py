@@ -60,45 +60,50 @@ class RPCHandler(RPCServer):
     def __init__(self, application, request, **kwargs):
         super().__init__(application, request, **kwargs)
 
-        self.global_lock = True
-        self.init_lock = False
+        self._global_lock = True
+        self._init_lock = False
 
+        self._collection = None
         self._collection_name = ''
+        self._db = None
 
         self._distro = None
         self._target_device = None
 
+        self._base_packages_number = 0
+        self._base_packages_query = {}
+        self._packages_number = 0
         self._selected_packages = []
 
-        self.user = None  # the one who builds an image
+        self._user = None  # the one who builds an image
 
     def _init_mongodb(self):
         client = MongoClient(options.mongodb_host, int(options.mongodb_port))
-        self.db = client[options.db_name]
+        self._db = client[options.db_name]
 
     @remote
     async def init(self, request, name, target_device_name, distro_name, build_type_id=1):
-        if self.init_lock:
+        if self._init_lock:
             request.ret(LOCKED)
 
-        self.init_lock = True
+        self._init_lock = True
 
         self._collection_name = distro_name
         self._init_mongodb()
-        self.collection = self.db[self._collection_name]
-        self.packages_number = self.collection.find().count()
-        self.base_packages_query = {
+        self._collection = self._db[self._collection_name]
+        self._packages_number = self._collection.find().count()
+        self._base_packages_query = {
             'package': {
                 '$in': self.base_packages_list[self._collection_name],
             },
         }
-        self.base_packages_number = self.collection.find(self.base_packages_query).count()
+        self._base_packages_number = self._collection.find(self._base_packages_query).count()
         build_id = str(uuid.uuid4())
 
         LOGGER.debug('Finishing initialization')
 
-        self.init_lock = False
-        self.global_lock = False
+        self._init_lock = False
+        self._global_lock = False
 
         request.ret_and_continue(build_id)
 
@@ -139,7 +144,7 @@ class RPCHandler(RPCServer):
         else:
             start_position = 0
 
-        collection = self.collection
+        collection = self._collection
         packages_list = []
         for document in collection.find().skip(start_position).limit(per_page):
             # Originally _id is an ObjectId instance and it's not JSON serializable
@@ -159,10 +164,10 @@ class RPCHandler(RPCServer):
     async def get_base_packages_list(self, request, page_number, per_page):
         start_position = (page_number - 1) * per_page if page_number > 0 else 0
 
-        collection = self.collection
+        collection = self._collection
         base_packages_list = []
         for document in collection.find(
-                self.base_packages_query
+                self._base_packages_query
         ).skip(start_position).limit(per_page):
             # Originally _id is an ObjectId instance and it's not JSON serializable
             document['_id'] = str(document['_id'])
@@ -175,7 +180,7 @@ class RPCHandler(RPCServer):
     async def get_selected_packages_list(self, request, page_number, per_page):
         start_position = (page_number - 1) * per_page if page_number > 0 else 0
 
-        collection = self.collection
+        collection = self._collection
         selected_packages_list = []
         for document in collection.find({
             'package': {
@@ -201,17 +206,17 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     async def get_packages_number(self, request):
-        request.ret(self.packages_number)
+        request.ret(self._packages_number)
 
     @only_if_initialized
     @remote
     async def get_base_packages_number(self, request):
-        request.ret(self.base_packages_number)
+        request.ret(self._base_packages_number)
 
     @only_if_initialized
     @remote
     async def get_selected_packages_number(self, request):
-        selected_packages_count = self.collection.find({
+        selected_packages_count = self._collection.find({
             'package': {
                 '$in': self._selected_packages,
             }
@@ -228,7 +233,7 @@ class RPCHandler(RPCServer):
     async def search(self, request, query):
         packages_list = []
         if query:
-            matches = self.db.command('text', self._collection_name, search=query)
+            matches = self._db.command('text', self._collection_name, search=query)
             if matches['results']:
                 for document in matches['results']:
                     document['obj'].pop('_id')

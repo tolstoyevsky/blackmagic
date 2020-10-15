@@ -11,7 +11,7 @@ def only_if_initialized(func):
 
     @wraps(func)
     def wrapper(self, request, *args, **kwargs):
-        if not self.global_lock:
+        if not self._global_lock:
             return func(self, request, *args, **kwargs)
         else:
             request.ret(NOT_INITIALIZED)
