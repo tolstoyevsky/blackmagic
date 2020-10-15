@@ -40,7 +40,7 @@ define('mongodb_port',
 LOGGER = logging.getLogger('tornado.application')
 
 READY = 10
-BUSY = 12
+
 LOCKED = 13
 
 
@@ -63,7 +63,6 @@ class RPCHandler(RPCServer):
     def __init__(self, application, request, **kwargs):
         super().__init__(application, request, **kwargs)
 
-        self.build_lock = False
         self.global_lock = True
         self.init_lock = False
 
@@ -90,9 +89,6 @@ class RPCHandler(RPCServer):
     async def init(self, request, name, target_device_name, distro_name, build_type_id=1):
         if self.init_lock:
             request.ret(LOCKED)
-
-        if self.build_lock:
-            request.ret(BUSY)
 
         self.init_lock = True
 
@@ -128,10 +124,9 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     async def build(self, request):
-        if not self.build_lock:
-            LOGGER.debug('Start building the image')
+        LOGGER.debug('Start building the image')
 
-        request.ret(LOCKED)
+        request.ret(READY)
 
     @only_if_initialized
     @remote
