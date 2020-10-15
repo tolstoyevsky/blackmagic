@@ -63,6 +63,8 @@ class RPCHandler(RPCServer):
         self._global_lock = True
         self._init_lock = False
 
+        self._build_id = str(uuid.uuid4())
+
         self._collection = None
         self._collection_name = ''
         self._db = None
@@ -98,14 +100,13 @@ class RPCHandler(RPCServer):
             },
         }
         self._base_packages_number = self._collection.find(self._base_packages_query).count()
-        build_id = str(uuid.uuid4())
 
         LOGGER.debug('Finishing initialization')
 
         self._init_lock = False
         self._global_lock = False
 
-        request.ret_and_continue(build_id)
+        request.ret_and_continue(self._build_id)
 
         request.ret(READY)
 
