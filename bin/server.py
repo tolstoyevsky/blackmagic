@@ -12,6 +12,7 @@ from pymongo import MongoClient
 from tornado.options import define, options
 
 from blackmagic import defaults, docker
+from blackmagic.codes import LOCKED, READY
 from blackmagic.decorators import only_if_initialized
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
@@ -38,10 +39,6 @@ define('mongodb_port',
        help='')
 
 LOGGER = logging.getLogger('tornado.application')
-
-READY = 10
-
-LOCKED = 13
 
 
 class DistroDoesNotExist(Exception):
