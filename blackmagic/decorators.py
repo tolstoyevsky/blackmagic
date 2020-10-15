@@ -1,6 +1,6 @@
 from functools import wraps
 
-NOT_INITIALIZED = 11
+from blackmagic.codes import NOT_INITIALIZED
 
 
 def only_if_initialized(func):
