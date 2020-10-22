@@ -18,6 +18,8 @@ DATABASES = {
 INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
+
+    'images',
 ]
 
 # Do not run anything if SECRET_KEY is not set.
