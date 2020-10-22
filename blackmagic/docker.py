@@ -7,7 +7,7 @@ DEBUG = False
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.environ.get('PG_DATABASE', 'cusdeb-api'),
+        'NAME': os.environ.get('PG_DATABASE', 'cusdeb'),
         'USER': os.environ.get('PG_USER', 'postgres'),
         'PASSWORD': os.environ.get('PG_PASSWORD', 'secret'),
         'HOST': os.environ.get('PG_HOST', 'localhost'),
