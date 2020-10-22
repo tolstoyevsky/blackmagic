@@ -2,7 +2,6 @@
 import logging
 import os
 import os.path
-import uuid
 
 import tornado.web
 import tornado.options
@@ -14,6 +13,7 @@ from shirow.server import RPCServer, TOKEN_PATTERN, remote
 from tornado.options import define, options
 
 from blackmagic import defaults, docker
+from blackmagic.db import Image
 from blackmagic.codes import LOCKED, READY
 from blackmagic.decorators import only_if_initialized
 
@@ -63,8 +63,6 @@ class RPCHandler(RPCServer):
         self._global_lock = True
         self._init_lock = False
 
-        self._build_id = str(uuid.uuid4())
-
         self._collection = None
         self._collection_name = ''
         self._db = None
@@ -76,7 +74,12 @@ class RPCHandler(RPCServer):
         self._base_packages_query = {}
         self._selected_packages = []
 
+        self._image = None
+
         self._user = None  # the one who builds an image
+
+    def destroy(self):
+        self._image.dump_sync()
 
     def _init_mongodb(self):
         client = MongoClient(options.mongodb_host, int(options.mongodb_port))
@@ -88,6 +91,8 @@ class RPCHandler(RPCServer):
             request.ret(LOCKED)
 
         self._init_lock = True
+
+        self._image = Image(self.user_id, name, device_name, distro_name, flavour)
 
         self._init_mongodb()
         self._collection_name = distro_name
@@ -105,14 +110,15 @@ class RPCHandler(RPCServer):
         self._init_lock = False
         self._global_lock = False
 
-        request.ret_and_continue(self._build_id)
+        request.ret_and_continue(self._image.image_id)
 
         request.ret(READY)
 
     @only_if_initialized
     @remote
     async def build(self, request):
-        LOGGER.debug('Start building the image')
+        self._image.enqueue()
+        await self._image.dump()
 
         request.ret(READY)
 
