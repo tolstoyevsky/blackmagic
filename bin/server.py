@@ -48,7 +48,7 @@ class DistroDoesNotExist(Exception):
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
-            (r'/rpc/token/' + TOKEN_PATTERN, RPCHandler),
+            (r'/bm/token/' + TOKEN_PATTERN, RPCHandler),
         ]
         super().__init__(handlers)
 
