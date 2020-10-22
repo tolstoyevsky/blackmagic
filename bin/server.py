@@ -83,7 +83,7 @@ class RPCHandler(RPCServer):
         self._db = client[options.db_name]
 
     @remote
-    async def init(self, request, name, target_device_name, distro_name, build_type_id=1):
+    async def init(self, request, name, device_name, distro_name, flavour):
         if self._init_lock:
             request.ret(LOCKED)
 
