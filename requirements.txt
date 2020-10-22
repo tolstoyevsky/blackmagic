@@ -1,3 +1,4 @@
+channels==2.4.0
 chardet
 django==2.2.*
 psycopg2==2.8.*
