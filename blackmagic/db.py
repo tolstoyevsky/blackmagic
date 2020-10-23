@@ -17,7 +17,7 @@ import uuid
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 
-from images import models
+from images.models import Image as ImageModel
 
 
 class Image:
@@ -29,17 +29,20 @@ class Image:
         self._device_name = device_name
         self._distro_name = distro_name
         self._flavour = flavour
-        self._status = models.Image.UNDEFINED
+        self._status = ImageModel.UNDEFINED
 
         self.image_id = str(uuid.uuid4())
 
     def enqueue(self):
         """Changes the image status to PENDING. """
 
-        self._status = models.Image.PENDING
+        self._status = ImageModel.PENDING
 
     def dump_sync(self):
-        image = models.Image()
+        try:
+            image = ImageModel.objects.get(image_id=self.image_id)
+        except ImageModel.DoesNotExist:
+            image = ImageModel()
 
         image.user = User.objects.get(pk=self._user_id)
         image.image_id = self.image_id
