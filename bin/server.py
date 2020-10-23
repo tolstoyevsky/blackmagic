@@ -75,11 +75,13 @@ class RPCHandler(RPCServer):
         self._selected_packages = []
 
         self._image = None
+        self._need_update = True
 
         self._user = None  # the one who builds an image
 
     def destroy(self):
-        self._image.dump_sync()
+        if self._need_update:
+            self._image.dump_sync()
 
     def _init_mongodb(self):
         client = MongoClient(options.mongodb_host, int(options.mongodb_port))
@@ -119,6 +121,8 @@ class RPCHandler(RPCServer):
     async def build(self, request):
         self._image.enqueue()
         await self._image.dump()
+
+        self._need_update = False
 
         request.ret(READY)
 
