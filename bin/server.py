@@ -248,19 +248,6 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    async def search(self, request, query):
-        packages_list = []
-        if query:
-            matches = self._db.command('text', self._collection_name, search=query)
-            if matches['results']:
-                for document in matches['results']:
-                    document['obj'].pop('_id')
-                    packages_list.append(document['obj'])
-
-        request.ret(packages_list)
-
-    @only_if_initialized
-    @remote
     async def resolve(self, request, packages_list):
         LOGGER.debug(f'Resolve dependencies for {packages_list}')
         self._selected_packages = packages_list
