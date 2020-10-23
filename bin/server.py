@@ -153,7 +153,7 @@ class RPCHandler(RPCServer):
         find_query = {}
         if search_token:
             find_query.update({
-                'package': {'$regex': search_token},
+                'package': {'$regex': search_token, '$options': '-i'},
             })
 
         packages_list = []
@@ -220,7 +220,7 @@ class RPCHandler(RPCServer):
         find_query = {}
         if search_token:
             find_query.update({
-                'package': {'$regex': search_token}
+                'package': {'$regex': search_token, '$options': '-i'}
             })
 
         packages_number = self._collection.find(find_query).count()
