@@ -87,8 +87,7 @@ class RPCHandler(RPCServer):
         client = MongoClient(options.mongodb_host, int(options.mongodb_port))
         self._db = client[options.db_name]
 
-    @remote
-    async def init(self, request, name, device_name, distro_name, flavour):
+    def _init(self, request, name, device_name, distro_name, flavour):
         if self._init_lock:
             request.ret(LOCKED)
 
@@ -115,6 +114,10 @@ class RPCHandler(RPCServer):
         request.ret_and_continue(self._image.image_id)
 
         request.ret(READY)
+
+    @remote
+    async def init_new_image(self, request, name, device_name, distro_name, flavour):
+        self._init(request, name, device_name, distro_name, flavour)
 
     @only_if_initialized
     @remote
