@@ -119,6 +119,10 @@ class RPCHandler(RPCServer):
     async def init_new_image(self, request, name, device_name, distro_name, flavour):
         self._init(request, name, device_name, distro_name, flavour)
 
+    @remote
+    async def init_existing_image(self, request, build_id):
+        request.ret(READY)
+
     @only_if_initialized
     @remote
     async def build(self, request):
