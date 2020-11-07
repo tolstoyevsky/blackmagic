@@ -80,7 +80,7 @@ class RPCHandler(RPCServer):
         self._user = None  # the one who builds an image
 
     def destroy(self):
-        if self._need_update:
+        if self._need_update and self._image:
             self._image.dump_sync()
 
     def _init_mongodb(self):
