@@ -7,7 +7,7 @@ import tornado.web
 import tornado.options
 from cdtz import set_time_zone
 from debian import deb822
-from pymongo import MongoClient
+from motor import MotorClient
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
 from tornado.options import define, options
@@ -84,10 +84,10 @@ class RPCHandler(RPCServer):
             self._image.dump_sync()
 
     def _init_mongodb(self):
-        client = MongoClient(options.mongodb_host, int(options.mongodb_port))
+        client = MotorClient(options.mongodb_host, int(options.mongodb_port))
         self._db = client[options.db_name]
 
-    def _init(self, request, name, device_name, distro_name, flavour):
+    async def _init(self, request, name, device_name, distro_name, flavour):
         if self._init_lock:
             request.ret(LOCKED)
 
@@ -104,7 +104,7 @@ class RPCHandler(RPCServer):
                 '$in': self.base_packages_list[self._collection_name],
             },
         }
-        self._base_packages_number = self._collection.find(self._base_packages_query).count()
+        self._base_packages_number = await self._collection.count_documents(self._base_packages_query)
 
         LOGGER.debug('Finishing initialization')
 
@@ -117,11 +117,11 @@ class RPCHandler(RPCServer):
 
     @remote
     async def init_new_image(self, request, name, device_name, distro_name, flavour):
-        self._init(request, name, device_name, distro_name, flavour)
+        await self._init(request, name, device_name, distro_name, flavour)
 
     @remote
     async def init_existing_image(self, request, build_id):
-        self._init(request, "My image", "Raspberry Pi Model B and B+", "raspbian-buster-armhf", 1)
+        await self._init(request, "My image", "Raspberry Pi Model B and B+", "raspbian-buster-armhf", 1)
 
     @only_if_initialized
     @remote
@@ -168,7 +168,7 @@ class RPCHandler(RPCServer):
             })
 
         packages_list = []
-        for document in self._collection.find(find_query).skip(start_position).limit(per_page):
+        async for document in self._collection.find(find_query).skip(start_position).limit(per_page):
             # Originally _id is an ObjectId instance and it's not JSON serializable
             document['_id'] = str(document['_id'])
 
@@ -188,7 +188,7 @@ class RPCHandler(RPCServer):
 
         collection = self._collection
         base_packages_list = []
-        for document in collection.find(
+        async for document in collection.find(
                 self._base_packages_query
         ).skip(start_position).limit(per_page):
             # Originally _id is an ObjectId instance and it's not JSON serializable
@@ -204,7 +204,7 @@ class RPCHandler(RPCServer):
 
         collection = self._collection
         selected_packages_list = []
-        for document in collection.find({
+        async for document in collection.find({
             'package': {
                 '$in': self._selected_packages,
             }
@@ -234,7 +234,7 @@ class RPCHandler(RPCServer):
                 'package': {'$regex': search_token, '$options': '-i'}
             })
 
-        packages_number = self._collection.find(find_query).count()
+        packages_number = await self._collection.count_documents(find_query)
         request.ret(packages_number)
 
     @only_if_initialized
@@ -245,11 +245,11 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     async def get_selected_packages_number(self, request):
-        selected_packages_count = self._collection.find({
+        selected_packages_count = await self._collection.count_documents({
             'package': {
                 '$in': self._selected_packages,
             }
-        }).count()
+        })
         request.ret(selected_packages_count)
 
     @only_if_initialized
