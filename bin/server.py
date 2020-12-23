@@ -121,7 +121,7 @@ class RPCHandler(RPCServer):
 
     @remote
     async def init_existing_image(self, request, build_id):
-        request.ret(READY)
+        self._init(request, "My image", "Raspberry Pi Model B and B+", "raspbian-buster-armhf", 1)
 
     @only_if_initialized
     @remote
