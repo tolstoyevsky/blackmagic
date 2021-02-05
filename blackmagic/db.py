@@ -46,7 +46,7 @@ class Image:
 
         image.user = User.objects.get(pk=self._user_id)
         image.image_id = self.image_id
-        image.device_name = 'rpi-zero-w'
+        image.device_name = self._device_name
         image.distro_name = self._distro_name
         image.flavour = 'C'
         image.status = self._status
