@@ -3,7 +3,6 @@ chardet
 django==2.2.*
 motor==2.3.0
 psycopg2==2.8.*
-python-debian
 
 -e git+https://git@github.com/tolstoyevsky/cusdeb-tz.git#egg=cusdeb-tz
 -e git+https://github.com/tolstoyevsky/shirow.git#egg=shirow
