@@ -5,8 +5,8 @@ import os.path
 
 import tornado.web
 import tornado.options
+from appleseed import AlpineIndexFile, DebianIndexFile
 from cdtz import set_time_zone
-from debian import deb822
 from motor import MotorClient
 from shirow.ioloop import IOLoop
 from shirow.server import RPCServer, TOKEN_PATTERN, remote
@@ -276,15 +276,23 @@ def main():
     for item_name in os.listdir(options.base_systems_path):
         item_path = os.path.join(options.base_systems_path, item_name)
         if os.path.isdir(item_path):
-            try:
-                status_file = os.path.join(item_path, 'var/lib/dpkg/status')
-                with open(status_file, encoding='utf-8') as infile:
-                    RPCHandler.base_packages_list[item_name] = []
-                    for package in deb822.Packages.iter_paragraphs(infile):
-                        RPCHandler.base_packages_list[item_name].append(package['package'])
-            except FileNotFoundError:
-                LOGGER.info(f'{item_name} is not a Debian-based system')
+            debian_status_file = os.path.join(item_path, 'var/lib/dpkg/status')
+            alpine_installed_file = os.path.join(item_path, 'lib/apk/db/installed')
+
+            if os.path.exists(debian_status_file):
+                file_path = debian_status_file
+                index_file_cls = DebianIndexFile
+            elif os.path.exists(alpine_installed_file):
+                file_path = alpine_installed_file
+                index_file_cls = AlpineIndexFile
+            else:
                 continue
+
+            distro, suite, arch = item_name.split('-')
+            with index_file_cls(distro, suite, arch, file_path) as index_file:
+                RPCHandler.base_packages_list[item_name] = []
+                for package in index_file.iter_paragraphs():
+                    RPCHandler.base_packages_list[item_name].append(package['package'])
 
             passwd_file = os.path.join(item_path, 'etc/passwd')
             with open(passwd_file, encoding='utf-8') as infile:
