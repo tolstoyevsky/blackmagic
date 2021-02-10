@@ -74,6 +74,8 @@ class RPCHandler(RPCServer):
         self._base_packages_query = {}
         self._selected_packages = []
 
+        self._configuration = dict(defaults.CONFIGURATION)
+
         self._image = None
         self._need_update = True
 
@@ -145,13 +147,17 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    async def sync_configuration(self, request, image_configuration_params):
-        request.ret(READY)
+    async def get_configuration(self, request):
+        request.ret(self._configuration)
 
     @only_if_initialized
     @remote
-    async def get_default_configuration(self, request):
-        request.ret(defaults.CONFIGURATION)
+    async def set_configuration(self, request, configuration):
+        for key in configuration:
+            if key in self._configuration:
+                self._configuration[key] = configuration[key]
+
+        request.ret(READY)
 
     @only_if_initialized
     @remote
