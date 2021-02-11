@@ -16,15 +16,18 @@ HOST_NAME = 'cusdeb'
 
 ENABLE_WIRELESS = False
 
-SSID = 'cusdeb'
+WPA_SSID = 'cusdeb'
 
-PSK = ''
+WPA_PSK = ''
+
+TIME_ZONE = 'Etc/UTC'
 
 CONFIGURATION = {
-    'hostname': HOST_NAME,
+    'host_name': HOST_NAME,
+    'time_zone': TIME_ZONE,
     'enable_wireless': ENABLE_WIRELESS,
-    'SSID': SSID,
-    'PSK': PSK,
+    'WPA_SSID': WPA_SSID,
+    'WPA_PSK': WPA_PSK,
 }
 
 ROOT_PASSWORD = 'cusdeb'
