@@ -30,6 +30,7 @@ class Image:
         self._distro_name = distro_name
         self._flavour = flavour
         self._status = ImageModel.UNDEFINED
+        self._selected_packages = []
 
         self.image_id = str(uuid.uuid4())
 
@@ -37,6 +38,9 @@ class Image:
         """Changes the image status to PENDING. """
 
         self._status = ImageModel.PENDING
+
+    def set_selected_packages(self, selected_packages):
+        self._selected_packages = selected_packages
 
     def dump_sync(self):
         try:
@@ -50,6 +54,10 @@ class Image:
         image.distro_name = self._distro_name
         image.flavour = 'C'
         image.status = self._status
+
+        image.props = {
+            'PIEMAN_INCLUDES': ','.join(self._selected_packages),
+        }
 
         image.save()
 
