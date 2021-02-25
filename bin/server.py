@@ -262,6 +262,7 @@ class RPCHandler(RPCServer):
     async def resolve(self, request, packages_list):
         LOGGER.debug(f'Resolve dependencies for {packages_list}')
         self._selected_packages = packages_list
+        self._image.set_selected_packages(packages_list)
         request.ret([])
 
 
