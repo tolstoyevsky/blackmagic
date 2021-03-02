@@ -157,6 +157,8 @@ class RPCHandler(RPCServer):
             if key in self._configuration:
                 self._configuration[key] = configuration[key]
 
+        self._image.set_configuration(self._configuration)
+
         request.ret(READY)
 
     @only_if_initialized

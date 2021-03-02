@@ -17,6 +17,7 @@ import uuid
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 
+from blackmagic import defaults
 from images.models import Image as ImageModel
 
 
@@ -31,8 +32,21 @@ class Image:
         self._flavour = flavour
         self._status = ImageModel.UNDEFINED
         self._selected_packages = []
+        self._configuration = {}
 
         self.image_id = str(uuid.uuid4())
+
+    def _get_configuration_props(self):
+        props = {}
+        for prop_key, prop_value in self._configuration.items():
+            if (not self._configuration['enable_wireless']
+                    and prop_key in defaults.WIRELESS_CONFIGURATION_KEYS):
+                continue
+
+            prop_name = f'PIEMAN_{prop_key.upper()}'
+            props[prop_name] = prop_value
+
+        return props
 
     def enqueue(self):
         """Changes the image status to PENDING. """
@@ -41,6 +55,9 @@ class Image:
 
     def set_selected_packages(self, selected_packages):
         self._selected_packages = selected_packages
+
+    def set_configuration(self, configuration):
+        self._configuration = configuration
 
     def dump_sync(self):
         try:
@@ -55,8 +72,10 @@ class Image:
         image.flavour = 'C'
         image.status = self._status
 
+        configuration_props = self._get_configuration_props()
         image.props = {
             'PIEMAN_INCLUDES': ','.join(self._selected_packages),
+            **configuration_props,
         }
 
         image.save()
