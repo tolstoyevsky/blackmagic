@@ -24,9 +24,8 @@ from images.models import Image as ImageModel
 class Image:
     """Class representing an image. """
 
-    def __init__(self, user_id, name, device_name, distro_name, flavour):
+    def __init__(self, user_id, device_name, distro_name, flavour):
         self._user_id = user_id
-        self._name = name
         self._device_name = device_name
         self._distro_name = distro_name
         self._flavour = flavour
