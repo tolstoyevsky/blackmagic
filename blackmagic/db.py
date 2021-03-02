@@ -48,6 +48,12 @@ class Image:
 
         return props
 
+    @staticmethod
+    def _serialize_props(props):
+        for prop_key, prop_value in props.items():
+            if isinstance(prop_value, bool):
+                props[prop_key] = str(prop_value).lower()
+
     def enqueue(self):
         """Changes the image status to PENDING. """
 
@@ -73,10 +79,12 @@ class Image:
         image.status = self._status
 
         configuration_props = self._get_configuration_props()
-        image.props = {
+        props = {
             'PIEMAN_INCLUDES': ','.join(self._selected_packages),
             **configuration_props,
         }
+        self._serialize_props(props)
+        image.props = props
 
         image.save()
 
