@@ -89,13 +89,13 @@ class RPCHandler(RPCServer):
         client = MotorClient(options.mongodb_host, int(options.mongodb_port))
         self._db = client[options.db_name]
 
-    async def _init(self, request, name, device_name, distro_name, flavour):
+    async def _init(self, request, device_name, distro_name, flavour):
         if self._init_lock:
             request.ret(LOCKED)
 
         self._init_lock = True
 
-        self._image = Image(self.user_id, name, device_name, distro_name, flavour)
+        self._image = Image(self.user_id, device_name, distro_name, flavour)
 
         self._init_mongodb()
         self._collection_name = distro_name
@@ -118,12 +118,12 @@ class RPCHandler(RPCServer):
         request.ret(READY)
 
     @remote
-    async def init_new_image(self, request, name, device_name, distro_name, flavour):
-        await self._init(request, name, device_name, distro_name, flavour)
+    async def init_new_image(self, request, device_name, distro_name, flavour):
+        await self._init(request, device_name, distro_name, flavour)
 
     @remote
     async def init_existing_image(self, request, build_id):
-        await self._init(request, "My image", "Raspberry Pi Model B and B+", "raspbian-buster-armhf", 1)
+        await self._init(request, "Raspberry Pi Model B and B+", "raspbian-buster-armhf", 1)
 
     @only_if_initialized
     @remote
