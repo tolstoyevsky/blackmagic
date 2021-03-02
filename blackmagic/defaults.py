@@ -30,4 +30,6 @@ CONFIGURATION = {
     'WPA_PSK': WPA_PSK,
 }
 
+WIRELESS_CONFIGURATION_KEYS = ['enable_wireless', 'WPA_SSID', 'WPA_PSK']
+
 ROOT_PASSWORD = 'cusdeb'
