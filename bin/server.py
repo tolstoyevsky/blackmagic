@@ -14,8 +14,9 @@ from tornado.options import define, options
 
 from blackmagic import defaults, docker
 from blackmagic.db import Image
-from blackmagic.codes import LOCKED, READY
+from blackmagic.codes import LOCKED, READY, RECOVERY_IMAGE_MISSING
 from blackmagic.decorators import only_if_initialized
+from blackmagic.exceptions import RecoveryImageIsMissing
 
 define('base_systems_path',
        default='/var/chroot',
@@ -89,16 +90,24 @@ class RPCHandler(RPCServer):
         client = MotorClient(options.mongodb_host, int(options.mongodb_port))
         self._db = client[options.db_name]
 
-    async def _init(self, request, device_name, distro_name, flavour):
+    async def _init(self, request, image_id=None, device_name=None, distro_name=None, flavour=None):
         if self._init_lock:
             request.ret(LOCKED)
 
         self._init_lock = True
 
-        self._image = Image(self.user_id, device_name, distro_name, flavour)
+        try:
+            self._image = Image(image_id=image_id, user_id=self.user_id, device_name=device_name,
+                                distro_name=distro_name, flavour=flavour)
+        except RecoveryImageIsMissing:
+            request.ret(RECOVERY_IMAGE_MISSING)
+
+        if image_id:
+            self._selected_packages = self._image.selected_packages
+            self._configuration = self._image.configuration
 
         self._init_mongodb()
-        self._collection_name = distro_name
+        self._collection_name = self._image.distro_name
         self._collection = self._db[self._collection_name]
 
         self._base_packages_query = {
@@ -113,17 +122,18 @@ class RPCHandler(RPCServer):
         self._init_lock = False
         self._global_lock = False
 
-        request.ret_and_continue(self._image.image_id)
+    @remote
+    async def init_new_image(self, request, device_name, distro_name, flavour):
+        await self._init(request, device_name=device_name, distro_name=distro_name, flavour=flavour)
 
+        request.ret_and_continue(self._image.image_id)
         request.ret(READY)
 
     @remote
-    async def init_new_image(self, request, device_name, distro_name, flavour):
-        await self._init(request, device_name, distro_name, flavour)
-
-    @remote
     async def init_existing_image(self, request, image_id):
-        await self._init(request, "Raspberry Pi Model B and B+", "raspbian-buster-armhf", 1)
+        await self._init(request, image_id=image_id)
+
+        request.ret(READY)
 
     @only_if_initialized
     @remote
