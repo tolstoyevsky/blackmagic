@@ -122,7 +122,7 @@ class RPCHandler(RPCServer):
         await self._init(request, device_name, distro_name, flavour)
 
     @remote
-    async def init_existing_image(self, request, build_id):
+    async def init_existing_image(self, request, image_id):
         await self._init(request, "Raspberry Pi Model B and B+", "raspbian-buster-armhf", 1)
 
     @only_if_initialized
