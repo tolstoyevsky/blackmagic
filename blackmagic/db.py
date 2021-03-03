@@ -18,27 +18,48 @@ from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 
 from blackmagic import defaults
+from blackmagic.exceptions import RecoveryImageIsMissing
 from images.models import Image as ImageModel
 
 
 class Image:
     """Class representing an image. """
 
-    def __init__(self, user_id, device_name, distro_name, flavour):
+    def __init__(self, image_id=None, user_id=None, device_name=None, distro_name=None,
+                 flavour=None):
+        self._image = None
         self._user_id = user_id
         self._device_name = device_name
         self._distro_name = distro_name
         self._flavour = flavour
         self._status = ImageModel.UNDEFINED
-        self._selected_packages = []
-        self._configuration = {}
+        self.selected_packages = []
+        self.configuration = {}
 
-        self.image_id = str(uuid.uuid4())
+        self.image_id = image_id or str(uuid.uuid4())
+
+        if image_id:
+            try:
+                self._image = ImageModel.objects.get(image_id=image_id)
+            except ImageModel.DoesNotExist as exc:
+                raise RecoveryImageIsMissing from exc
+            else:
+                self._distro_name = self._image.distro_name
+
+                pieman_includes = self._image.props['PIEMAN_INCLUDES']
+                if pieman_includes:
+                    self.selected_packages = pieman_includes.split(',')
+
+                self.configuration = dict(defaults.CONFIGURATION)
+                for conf_key, conf_value in self.configuration.items():
+                    prop_value = self._image.props.get(f'PIEMAN_{conf_key.upper()}')
+                    if prop_value:
+                        self.configuration[conf_key] = prop_value
 
     def _get_configuration_props(self):
         props = {}
-        for prop_key, prop_value in self._configuration.items():
-            if (not self._configuration['enable_wireless']
+        for prop_key, prop_value in self.configuration.items():
+            if (not self.configuration['enable_wireless']
                     and prop_key in defaults.WIRELESS_CONFIGURATION_KEYS):
                 continue
 
@@ -59,27 +80,29 @@ class Image:
         self._status = ImageModel.PENDING
 
     def set_selected_packages(self, selected_packages):
-        self._selected_packages = selected_packages
+        self.selected_packages = selected_packages
 
     def set_configuration(self, configuration):
-        self._configuration = configuration
+        self.configuration = configuration
 
     def dump_sync(self):
-        try:
-            image = ImageModel.objects.get(image_id=self.image_id)
-        except ImageModel.DoesNotExist:
-            image = ImageModel()
+        image = self._image or ImageModel()
 
-        image.user = User.objects.get(pk=self._user_id)
-        image.image_id = self.image_id
-        image.device_name = self._device_name
-        image.distro_name = self._distro_name
-        image.flavour = 'C'
+        if not self._image:
+            try:
+                image.user = User.objects.get(pk=self._user_id)
+            except User.DoesNotExist:
+                """User doesn't exist. """
+
+            image.image_id = self.image_id
+            image.device_name = self._device_name
+            image.distro_name = self._distro_name
+            image.flavour = 'C'
+
         image.status = self._status
-
         configuration_props = self._get_configuration_props()
         props = {
-            'PIEMAN_INCLUDES': ','.join(self._selected_packages),
+            'PIEMAN_INCLUDES': ','.join(self.selected_packages),
             **configuration_props,
         }
         self._serialize_props(props)
