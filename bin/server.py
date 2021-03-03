@@ -157,7 +157,7 @@ class RPCHandler(RPCServer):
             if key in self._configuration:
                 self._configuration[key] = configuration[key]
 
-        self._image.set_configuration(self._configuration)
+        self._image.configuration = self._configuration
 
         request.ret(READY)
 
@@ -269,8 +269,7 @@ class RPCHandler(RPCServer):
     @remote
     async def resolve(self, request, packages_list):
         LOGGER.debug(f'Resolve dependencies for {packages_list}')
-        self._selected_packages = packages_list
-        self._image.set_selected_packages(packages_list)
+        self._selected_packages = self._image.selected_packages = packages_list
         request.ret([])
 
 
