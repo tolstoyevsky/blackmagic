@@ -79,12 +79,6 @@ class Image:
 
         self._status = ImageModel.PENDING
 
-    def set_selected_packages(self, selected_packages):
-        self.selected_packages = selected_packages
-
-    def set_configuration(self, configuration):
-        self.configuration = configuration
-
     def dump_sync(self):
         image = self._image or ImageModel()
 
