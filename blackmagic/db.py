@@ -30,9 +30,9 @@ class Image:
         self._image = None
         self._user_id = user_id
         self._device_name = device_name
-        self._distro_name = distro_name
         self._flavour = flavour
         self._status = ImageModel.UNDEFINED
+        self.distro_name = distro_name
         self.selected_packages = []
         self.configuration = {}
 
@@ -44,7 +44,7 @@ class Image:
             except ImageModel.DoesNotExist as exc:
                 raise RecoveryImageIsMissing from exc
             else:
-                self._distro_name = self._image.distro_name
+                self.distro_name = self._image.distro_name
 
                 pieman_includes = self._image.props['PIEMAN_INCLUDES']
                 if pieman_includes:
@@ -96,7 +96,7 @@ class Image:
 
             image.image_id = self.image_id
             image.device_name = self._device_name
-            image.distro_name = self._distro_name
+            image.distro_name = self.distro_name
             image.flavour = 'C'
 
         image.status = self._status
