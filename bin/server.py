@@ -14,9 +14,16 @@ from tornado.options import define, options
 
 from blackmagic import defaults, docker
 from blackmagic.db import Image
-from blackmagic.codes import LOCKED, READY, RECOVERY_IMAGE_MISSING
+from blackmagic.codes import (
+    IMAGE_IS_NOT_AVAILABLE_FOR_RECOVERY,
+    LOCKED,
+    READY,
+    RECOVERY_IMAGE_MISSING,
+)
 from blackmagic.decorators import only_if_initialized
 from blackmagic.exceptions import RecoveryImageIsMissing
+from images.models import Image as ImageModel
+from images.serializers import ImageSerializer
 
 define('base_systems_path',
        default='/var/chroot',
@@ -134,6 +141,15 @@ class RPCHandler(RPCServer):
         await self._init(request, image_id=image_id)
 
         request.ret(READY)
+
+    @remote
+    async def is_image_available_for_recovery(self, request, image_id):
+        try:
+            image = ImageModel.objects.get(image_id=image_id, status=ImageModel.UNDEFINED)
+            serializer = ImageSerializer(image)
+            request.ret(serializer.data)
+        except ImageModel.DoesNotExist:
+            request.ret_error(IMAGE_IS_NOT_AVAILABLE_FOR_RECOVERY)
 
     @only_if_initialized
     @remote
