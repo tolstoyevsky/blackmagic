@@ -15,6 +15,7 @@ from tornado.options import define, options
 from blackmagic import defaults, docker
 from blackmagic.db import Image
 from blackmagic.codes import (
+    IMAGE_BUILDING_UNAVAILABLE,
     IMAGE_IS_NOT_AVAILABLE_FOR_RECOVERY,
     LOCKED,
     READY,
@@ -154,6 +155,11 @@ class RPCHandler(RPCServer):
     @only_if_initialized
     @remote
     async def build(self, request):
+        from users.models import Person
+
+        if not Person.objects.filter(user__pk=self.user_id).exists():
+            request.ret_error(IMAGE_BUILDING_UNAVAILABLE)
+
         self._image.enqueue()
         await self._image.dump()
 

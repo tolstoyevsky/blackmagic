@@ -19,7 +19,10 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
 
+    'django_rest_passwordreset',
+
     'images',
+    'users',
 ]
 
 # Do not run anything if SECRET_KEY is not set.
