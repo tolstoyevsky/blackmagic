@@ -35,6 +35,8 @@ class Image:
         self.distro_name = distro_name
         self.selected_packages = []
         self.configuration = {}
+        self.pieman_user = None
+        self.root_password = defaults.ROOT_PASSWORD
 
         self.image_id = image_id or str(uuid.uuid4())
 
@@ -99,6 +101,15 @@ class Image:
             'PIEMAN_INCLUDES': ','.join(self.selected_packages),
             **configuration_props,
         }
+
+        if self.pieman_user:
+            props.update({
+                'PIEMAN_USER_NAME': self.pieman_user['username'],
+                'PIEMAN_USER_PASSWORD': self.pieman_user['password'],
+            })
+
+        props['PIEMAN_PASSWORD'] = self.root_password
+
         self._serialize_props(props)
         image.props = props
 

@@ -169,12 +169,17 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    async def add_user(self, request, username, password, uid, gid, comment, homedir, shell):
+    async def add_user(self, request, username, password):
+        self._image.pieman_user = {
+            'username': username,
+            'password': password,
+        }
         request.ret(READY)
 
     @only_if_initialized
     @remote
     async def change_root_password(self, request, password):
+        self._image.root_password = password
         request.ret(READY)
 
     @only_if_initialized
