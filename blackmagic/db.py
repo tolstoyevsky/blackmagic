@@ -48,6 +48,18 @@ class Image:
             else:
                 self.distro_name = self._image.distro_name
 
+                pieman_user_username = self._image.props.get('PIEMAN_USER_NAME')
+                pieman_user_password = self._image.props.get('PIEMAN_USER_PASSWORD')
+                if pieman_user_username:
+                    self.pieman_user = {
+                        'username': pieman_user_username,
+                        'password': pieman_user_password,
+                    }
+
+                root_password = self._image.props.get('PIEMAN_PASSWORD')
+                if root_password:
+                    self.root_password = root_password
+
                 pieman_includes = self._image.props['PIEMAN_INCLUDES']
                 if pieman_includes:
                     self.selected_packages = pieman_includes.split(',')
