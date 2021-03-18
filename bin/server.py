@@ -265,8 +265,8 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
-    async def get_default_root_password(self, request):
-        request.ret(defaults.ROOT_PASSWORD)
+    async def get_root_password(self, request):
+        request.ret(self._image.root_password)
 
     @only_if_initialized
     @remote
