@@ -257,6 +257,11 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
+    async def get_initial_selected_packages_list(self, request):
+        request.ret(self._selected_packages)
+
+    @only_if_initialized
+    @remote
     async def get_default_root_password(self, request):
         request.ret(defaults.ROOT_PASSWORD)
 
