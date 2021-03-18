@@ -302,6 +302,11 @@ class RPCHandler(RPCServer):
 
     @only_if_initialized
     @remote
+    async def get_user(self, request):
+        request.ret(self._image.pieman_user)
+
+    @only_if_initialized
+    @remote
     async def get_users_list(self, request):
         request.ret(self.users_list[self._collection_name])
 
